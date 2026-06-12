@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Crear cuenta · Porra Mundial 2026{% endblock %}
+{% block body %}
+<div class="max-w-sm mx-auto card rounded-xl p-6">
+  <h1 class="text-xl font-bold mb-4">Crear cuenta</h1>
+  <form method="post" class="space-y-3">
+    <input name="username" placeholder="Nombre de participante" class="w-full bg-slate-800 rounded px-3 py-2" required>
+    <input type="email" name="email" placeholder="Email" class="w-full bg-slate-800 rounded px-3 py-2" required>
+    <input type="password" name="password" placeholder="Contraseña (4+ caracteres)" class="w-full bg-slate-800 rounded px-3 py-2" required>
+    <button class="w-full bg-emerald-600 hover:bg-emerald-500 rounded px-3 py-2 font-medium">Crear cuenta</button>
+  </form>
+  <p class="text-slate-400 text-sm mt-4">¿Ya tienes cuenta?
+    <a href="{{ url_for('login') }}" class="text-emerald-400 underline">Entrar</a></p>
+</div>
+{% endblock %}

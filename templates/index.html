@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="flex items-end justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">Clasificación</h1>
+  <div class="flex gap-1 text-sm">
+    {% set tabs = [('general','General'),('phase1','Fase 1 · Grupos'),('phase2','Fase 2 · Eliminatorias')] %}
+    {% for key,label in tabs %}
+      <a href="{{ url_for('index', tab=key) }}"
+         class="px-3 py-1.5 rounded {{ 'bg-emerald-600' if tab==key else 'bg-slate-700 hover:bg-slate-600' }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+{% set rows = standings[tab] %}
+{% if not rows %}
+  <div class="card rounded-xl p-6 text-slate-400">Aún no hay participantes. <a class="text-emerald-400 underline" href="{{ url_for('register') }}">Crea la primera cuenta</a>.</div>
+{% else %}
+<div class="card rounded-xl overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-[#0e1730] text-slate-300">
+      <tr>
+        <th class="px-3 py-2 text-left">#</th>
+        <th class="px-3 py-2 text-left">Participante</th>
+        {% if tab=='phase1' %}
+          <th class="px-2 py-2 text-right">Partidos</th>
+          <th class="px-2 py-2 text-right">Camp. grupo</th>
+          <th class="px-2 py-2 text-right">Pasan 16avos</th>
+          <th class="px-3 py-2 text-right font-bold">Total F1</th>
+          <th class="px-2 py-2 text-right text-slate-500" title="Desempate">Exactos</th>
+        {% elif tab=='phase2' %}
+          <th class="px-2 py-2 text-right">Partidos</th>
+          <th class="px-2 py-2 text-right">Octavos</th>
+          <th class="px-2 py-2 text-right">Cuartos</th>
+          <th class="px-2 py-2 text-right">Semis</th>
+          <th class="px-2 py-2 text-right">Final</th>
+          <th class="px-2 py-2 text-right">Campeón</th>
+          <th class="px-3 py-2 text-right font-bold">Total F2</th>
+          <th class="px-2 py-2 text-right text-slate-500" title="Desempate">Exactos</th>
+        {% else %}
+          <th class="px-3 py-2 text-right">Fase 1</th>
+          <th class="px-3 py-2 text-right">Fase 2</th>
+          <th class="px-3 py-2 text-right font-bold">General</th>
+          <th class="px-2 py-2 text-right text-slate-500" title="Desempate">Exactos</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t border-[#1f2a44] {{ 'bg-emerald-900/20' if r.rank==1 }}">
+        <td class="px-3 py-2">{{ r.rank }}{% if r.rank==1 %} 🥇{% elif r.rank==2 %} 🥈{% elif r.rank==3 %} 🥉{% endif %}</td>
+        <td class="px-3 py-2 font-medium"><a href="{{ url_for('participant', uid=r.user_id) }}" class="hover:text-emerald-300 hover:underline">{{ r.user }}</a></td>
+        {% if tab=='phase1' %}
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p1_matches }}</td>
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p1_gw }}</td>
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p1_r32 }}</td>
+          <td class="px-3 py-2 text-right font-bold text-emerald-300">{{ r.phase1 }}</td>
+          <td class="px-2 py-2 text-right text-slate-500">{{ r.p1_exacts }}</td>
+        {% elif tab=='phase2' %}
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p2_matches }}</td>
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p2_r16 }}</td>
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p2_qf }}</td>
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p2_sf }}</td>
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p2_fin }}</td>
+          <td class="px-2 py-2 text-right text-slate-400">{{ r.p2_champ }}</td>
+          <td class="px-3 py-2 text-right font-bold text-emerald-300">{{ r.phase2 }}</td>
+          <td class="px-2 py-2 text-right text-slate-500">{{ r.p2_exacts }}</td>
+        {% else %}
+          <td class="px-3 py-2 text-right text-slate-400">{{ r.phase1 }}</td>
+          <td class="px-3 py-2 text-right text-slate-400">{{ r.phase2 }}</td>
+          <td class="px-3 py-2 text-right font-bold text-emerald-300">{{ r.general }}</td>
+          <td class="px-2 py-2 text-right text-slate-500">{{ r.g_exacts }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-slate-500 text-xs mt-3">La clasificación se actualiza con cada partido finalizado que sincroniza el administrador. <b>Desempate:</b> a igualdad de puntos, gana quien tenga más resultados exactos; si sigue el empate, más signos (1X2) acertados.</p>
+{% endif %}
+{% endblock %}

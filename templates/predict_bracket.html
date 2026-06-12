@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Eliminatorias · Porra Mundial 2026{% endblock %}
+{% block body %}
+<div class="flex items-end justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">Fase 2 · Eliminatorias</h1>
+  {% if not closed and not locked %}<button form="fb" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded font-medium">Guardar cuadro</button>{% endif %}
+</div>
+
+{% if closed %}
+<div class="card rounded-xl p-6 text-slate-300">
+  ⏳ Las eliminatorias se abrirán cuando termine la fase de grupos y se conozcan los 32 clasificados (después del 27 de junio).
+</div>
+{% else %}
+
+{% if locked %}<div class="mb-4 px-4 py-2 rounded bg-amber-900/50 border border-amber-600">🔒 Cerradas. Solo lectura.</div>{% endif %}
+{% if not r32_ready %}<div class="mb-4 px-4 py-2 rounded bg-amber-900/40 border border-amber-700 text-sm">Aún no están cargados los clasificados a dieciseisavos. El administrador debe pulsar <b>Sincronizar</b> tras la fase de grupos.</div>{% endif %}
+
+<p class="text-slate-400 text-sm mb-3">Predice el marcador de cada cruce: el <b>ganador avanza solo</b> a la siguiente ronda. Si empatas, elige quién pasa. De aquí salen los bonus (octavos, cuartos, semis, finalistas y campeón).</p>
+<div id="champion-banner" class="card rounded-xl p-3 mb-4 text-center text-lg"></div>
+
+<form id="fb" method="post">
+{% for stage, label, slots in rounds %}
+  <h2 class="font-bold text-emerald-400 mt-5 mb-2">{{ label }}</h2>
+  <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+    {% for f in slots %}
+    {% set fid = f.id %}{% set num = f.match_num %}
+    <div class="kmatch card rounded-lg p-2" data-num="{{ num }}" data-fid="{{ fid }}">
+      <div class="flex items-center gap-1 text-sm">
+        <span class="bteam flex-1 flex items-center gap-1 min-w-0" data-num="{{ num }}" data-side="home" {% if f.home %}data-team-id="{{ f.home_team_id }}"{% endif %}>
+          {% if f.home %}<img src="{{ flag_url(f.home.name_es) }}" class="h-3.5 w-auto rounded-sm" onerror="this.style.display='none'"><span class="truncate">{{ f.home.name_es }}</span>{% else %}<span class="text-slate-600">—</span>{% endif %}
+        </span>
+        <span class="scorewrap inline-flex items-center gap-0.5 shrink-0">
+          <button type="button" tabindex="-1" data-step="-1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>−</button>
+          <input class="kscore bg-slate-800 rounded text-center py-1" type="number" min="0" max="20" inputmode="numeric" name="m_{{ fid }}_h" data-num="{{ num }}" value="{{ mp[fid].pred_home if fid in mp and mp[fid].pred_home is not none else '' }}" {{ 'disabled' if locked }}>
+          <button type="button" tabindex="-1" data-step="1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>+</button>
+        </span>
+      </div>
+      <div class="flex items-center gap-1 text-sm mt-1">
+        <span class="bteam flex-1 flex items-center gap-1 min-w-0" data-num="{{ num }}" data-side="away" {% if f.away %}data-team-id="{{ f.away_team_id }}"{% endif %}>
+          {% if f.away %}<img src="{{ flag_url(f.away.name_es) }}" class="h-3.5 w-auto rounded-sm" onerror="this.style.display='none'"><span class="truncate">{{ f.away.name_es }}</span>{% else %}<span class="text-slate-600">—</span>{% endif %}
+        </span>
+        <span class="scorewrap inline-flex items-center gap-0.5 shrink-0">
+          <button type="button" tabindex="-1" data-step="-1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>−</button>
+          <input class="kscore bg-slate-800 rounded text-center py-1" type="number" min="0" max="20" inputmode="numeric" name="m_{{ fid }}_a" data-num="{{ num }}" value="{{ mp[fid].pred_away if fid in mp and mp[fid].pred_away is not none else '' }}" {{ 'disabled' if locked }}>
+          <button type="button" tabindex="-1" data-step="1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>+</button>
+        </span>
+      </div>
+      <input type="hidden" class="tb" name="tb_{{ fid }}" data-num="{{ num }}" value="{{ mp[fid].pred_winner_id if fid in mp and mp[fid].pred_winner_id else '' }}">
+      <div class="passctrl hidden text-xs text-amber-300 mt-1" data-num="{{ num }}">empate · ¿pasa?
+        <button type="button" class="passbtn underline" data-num="{{ num }}" data-side="home">local</button> /
+        <button type="button" class="passbtn underline" data-num="{{ num }}" data-side="away">visitante</button>
+      </div>
+      <div class="wlabel text-xs text-emerald-300 mt-0.5" data-num="{{ num }}"></div>
+    </div>
+    {% endfor %}
+  </div>
+{% endfor %}
+
+{% if not locked %}<div class="mt-5"><button class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded font-medium">Guardar cuadro</button></div>{% endif %}
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if not closed %}
+<script>
+const TEAMS = { {% for tid, t in teams_json.items() %}{{ tid }}:{name:{{ t.name|tojson }},flag:{{ t.flag|tojson }}}{{ "," if not loop.last }}{% endfor %} };
+const R32TEAMS = { {% for stage,label,slots in rounds %}{% if stage=='R32' %}{% for f in slots %}{{ f.match_num }}:{h:{{ f.home_team_id if f.home_team_id else 'null' }},a:{{ f.away_team_id if f.away_team_id else 'null' }}},{% endfor %}{% endif %}{% endfor %} };
+const FEEDS = { {% for num, trip in feeds.items() %}{{ num }}:["{{ trip[0] }}",{{ trip[1] }},{{ trip[2] }}],{% endfor %} };
+const NUM2FID = { {% for num, fid in num2fid.items() %}{{ num }}:{{ fid }},{% endfor %} };
+const LOCKED = {{ 'true' if locked else 'false' }};
+const ALLNUMS = Object.keys(NUM2FID).map(Number).sort((a,b)=>a-b);
+
+function inp(num,side){ return document.querySelector(`input[name="m_${NUM2FID[num]}_${side==='home'?'h':'a'}"]`); }
+function sval(num,side){ const e=inp(num,side); if(!e||e.value==='') return null; const n=parseInt(e.value); return isNaN(n)?null:n; }
+function tbVal(num){ const e=document.querySelector(`input.tb[data-num="${num}"]`); return e&&e.value? parseInt(e.value):null; }
+function setTb(num,id){ const e=document.querySelector(`input.tb[data-num="${num}"]`); if(e) e.value=id||''; }
+
+function teamAt(num,side){
+  if(num<=88){ const t=R32TEAMS[num]; return t?(side==='home'?t.h:t.a):null; }
+  const f=FEEDS[num]; const feed=side==='home'?f[1]:f[2];
+  return f[0]==='W'? winnerOf(feed):loserOf(feed);
+}
+function winnerOf(num){
+  const th=teamAt(num,'home'), tw=teamAt(num,'away');
+  const h=sval(num,'home'), a=sval(num,'away');
+  if(th&&tw&&h!=null&&a!=null){ if(h>a)return th; if(h<a)return tw; const tb=tbVal(num); return (tb===th||tb===tw)?tb:null; }
+  return null;
+}
+function loserOf(num){ const w=winnerOf(num); if(!w)return null; const th=teamAt(num,'home'),tw=teamAt(num,'away'); return w===th?tw:th; }
+
+function paint(num,side){
+  if(num<=88) return;
+  const span=document.querySelector(`.bteam[data-num="${num}"][data-side="${side}"]`); if(!span)return;
+  const id=teamAt(num,side); span.dataset.teamId=id||'';
+  span.innerHTML = id? `<img src="${TEAMS[id].flag}" class="h-3.5 w-auto rounded-sm" onerror="this.style.display='none'"><span class="truncate">${TEAMS[id].name}</span>` : `<span class="text-slate-600">—</span>`;
+}
+function recompute(){
+  ALLNUMS.forEach(num=>{
+    paint(num,'home'); paint(num,'away');
+    const th=teamAt(num,'home'),tw=teamAt(num,'away'),h=sval(num,'home'),a=sval(num,'away');
+    const pc=document.querySelector(`.passctrl[data-num="${num}"]`);
+    if(pc) pc.classList.toggle('hidden', !(th&&tw&&h!=null&&a!=null&&h===a));
+    const w=winnerOf(num); const wl=document.querySelector(`.wlabel[data-num="${num}"]`);
+    if(wl) wl.textContent = w? ('Pasa: '+TEAMS[w].name):'';
+  });
+  const champ=winnerOf(104); const cb=document.getElementById('champion-banner');
+  if(cb) cb.innerHTML = champ? `🏆 Campeón previsto: <img src="${TEAMS[champ].flag}" class="inline h-5 w-auto rounded-sm align-middle mx-1"><b>${TEAMS[champ].name}</b>` : '<span class="text-slate-500 text-sm">Completa el cuadro para ver tu campeón previsto</span>';
+}
+document.querySelectorAll('.kscore').forEach(e=>e.addEventListener('input',recompute));
+document.querySelectorAll('.passbtn').forEach(b=>b.addEventListener('click',()=>{ if(LOCKED)return; const num=parseInt(b.dataset.num); setTb(num, teamAt(num,b.dataset.side)); recompute(); }));
+recompute();
+</script>
+{% endif %}
+{% endblock %}

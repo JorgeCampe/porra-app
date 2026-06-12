@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Editar resultados · Admin{% endblock %}
+{% block body %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Editar resultados (respaldo manual)</h1>
+  <a href="{{ url_for('admin') }}" class="text-sm text-slate-400 hover:text-emerald-300">← Volver a Admin</a>
+</div>
+<p class="text-slate-400 text-sm mb-4">Úsalo solo si el proveedor automático va con retraso o falla. Deja en blanco los que no quieras tocar. Al guardar se recalcula la clasificación.</p>
+
+<form method="post">
+  <div class="card rounded-xl overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-[#0e1730] text-slate-300">
+        <tr>
+          <th class="px-3 py-2 text-left">Etapa</th>
+          <th class="px-3 py-2 text-right">Local</th>
+          <th class="px-3 py-2 text-center">Marcador (90')</th>
+          <th class="px-3 py-2 text-left">Visitante</th>
+          <th class="px-3 py-2 text-left">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in fixtures %}
+        <tr class="border-t border-[#1f2a44]">
+          <td class="px-3 py-1.5 text-slate-400">{{ labels.get(f.stage, f.stage) }}{{ ' '+f.group_letter if f.group_letter }}</td>
+          <td class="px-3 py-1.5 text-right font-medium whitespace-nowrap">{{ f.home.name_es }}
+            <img src="{{ flag_url(f.home.name_es) }}" class="inline-block h-3 w-auto rounded-sm align-middle ml-1" onerror="this.style.display='none'"></td>
+          <td class="px-3 py-1.5 text-center whitespace-nowrap">
+            <input type="number" min="0" max="20" name="h_{{ f.id }}" value="{{ f.home_goals if f.home_goals is not none else '' }}" class="bg-slate-800 rounded text-center py-1">
+            <span class="text-slate-500">-</span>
+            <input type="number" min="0" max="20" name="a_{{ f.id }}" value="{{ f.away_goals if f.away_goals is not none else '' }}" class="bg-slate-800 rounded text-center py-1">
+          </td>
+          <td class="px-3 py-1.5 font-medium whitespace-nowrap">
+            <img src="{{ flag_url(f.away.name_es) }}" class="inline-block h-3 w-auto rounded-sm align-middle mr-1" onerror="this.style.display='none'">{{ f.away.name_es }}</td>
+          <td class="px-3 py-1.5">{% if f.status=='FINISHED' %}<span class="text-emerald-400">Finalizado</span>{% else %}<span class="text-slate-500">—</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="mt-4"><button class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded font-medium">Guardar resultados</button></div>
+</form>
+{% endblock %}

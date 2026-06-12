@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ u.username }} · Porra Mundial 2026{% endblock %}
+{% block body %}
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">{{ u.username }}</h1>
+  <a href="{{ url_for('index') }}" class="text-sm text-slate-400 hover:text-emerald-300">← Clasificación</a>
+</div>
+
+{% if not r %}
+  <div class="card rounded-xl p-6 text-slate-400">Este participante aún no tiene puntos.</div>
+{% else %}
+<div class="card rounded-xl p-4 mb-4 flex items-center justify-between">
+  <span class="text-slate-300">Posición general</span>
+  <span class="text-2xl font-bold text-emerald-300">{{ r.general }} <span class="text-sm text-slate-500 font-normal">pts · #{{ r.rank }}</span></span>
+</div>
+
+<div class="grid md:grid-cols-2 gap-4">
+  <div class="card rounded-xl p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-emerald-400">Fase 1 · Grupos</h2>
+      <span class="text-sm text-slate-400">#{{ p1rank }} · <b class="text-emerald-300">{{ r.phase1 }}</b> pts</span>
+    </div>
+    <table class="w-full text-sm">
+      <tbody>
+        {% set f1 = [('Partidos de grupo', r.p1_matches, maxes.p1_matches),
+                     ('Campeones de grupo', r.p1_gw, maxes.p1_gw),
+                     ('Pasan a dieciseisavos', r.p1_r32, maxes.p1_r32)] %}
+        {% for label, val, mx in f1 %}
+        <tr class="border-t border-[#1f2a44]">
+          <td class="py-1.5 text-slate-300">{{ label }}</td>
+          <td class="py-1.5 text-right font-medium">{{ val }} <span class="text-xs text-slate-500">/ {{ mx }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card rounded-xl p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-emerald-400">Fase 2 · Eliminatorias</h2>
+      <span class="text-sm text-slate-400">#{{ p2rank }} · <b class="text-emerald-300">{{ r.phase2 }}</b> pts</span>
+    </div>
+    <table class="w-full text-sm">
+      <tbody>
+        {% set f2 = [('Partidos de eliminatorias', r.p2_matches, maxes.p2_matches),
+                     ('Pasan a octavos', r.p2_r16, maxes.p2_r16),
+                     ('Pasan a cuartos', r.p2_qf, maxes.p2_qf),
+                     ('Pasan a semis', r.p2_sf, maxes.p2_sf),
+                     ('Finalistas', r.p2_fin, maxes.p2_fin),
+                     ('Campeón', r.p2_champ, maxes.p2_champ)] %}
+        {% for label, val, mx in f2 %}
+        <tr class="border-t border-[#1f2a44]">
+          <td class="py-1.5 text-slate-300">{{ label }}</td>
+          <td class="py-1.5 text-right font-medium">{{ val }} <span class="text-xs text-slate-500">/ {{ mx }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if pred_tables %}
+<h2 class="text-xl font-bold mt-6 mb-2">Predicciones de grupos</h2>
+<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for g, matches in pred_groups.items() %}
+  <div class="card rounded-xl p-3">
+    <div class="font-bold text-emerald-400 mb-1">Grupo {{ g }}</div>
+    <div class="space-y-0.5 text-sm">
+      {% for f, p in matches %}
+      <div class="flex justify-between gap-2">
+        <span class="truncate text-slate-300">{{ f.home.name_es }} - {{ f.away.name_es }}</span>
+        <span class="shrink-0">{% if p and p.pred_home is not none %}{{ p.pred_home }}-{{ p.pred_away }}{% else %}<span class="text-slate-600">—</span>{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="border-t border-[#1f2a44] mt-2 pt-1 text-xs text-slate-400">
+      Previsto: {% for row in pred_tables[g] %}{{ loop.index }}. {{ row.name }}{{ ' · ' if not loop.last }}{% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if pred_ko %}
+<h2 class="text-xl font-bold mt-6 mb-2">Predicciones de eliminatorias</h2>
+{% if champ_pred %}<p class="mb-2 text-lg">🏆 Campeón previsto: <b class="text-emerald-300">{{ champ_pred.name_es }}</b></p>{% endif %}
+<div class="card rounded-xl p-3 text-sm">
+  {% for f, p in pred_ko %}
+  <div class="flex justify-between gap-2 border-t border-[#1f2a44] py-1">
+    <span class="text-slate-500 text-xs w-24 shrink-0">{{ labels.get(f.stage, f.stage) }}</span>
+    <span class="flex-1 truncate text-slate-300">{{ f.home.name_es }} - {{ f.away.name_es }}</span>
+    <span class="shrink-0">{{ p.pred_home }}-{{ p.pred_away }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if current_user.is_authenticated and not revealed %}
+<p class="text-slate-500 text-sm mt-6">🔒 Las predicciones de cada participante se podrán ver aquí <b>cuando se cierre</b> la fase correspondiente.</p>
+{% endif %}
+{% endblock %}

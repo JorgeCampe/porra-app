@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Entrar · Porra Mundial 2026{% endblock %}
+{% block body %}
+<div class="max-w-sm mx-auto card rounded-xl p-6">
+  <h1 class="text-xl font-bold mb-4">Iniciar sesión</h1>
+  <form method="post" class="space-y-3">
+    <input name="identifier" placeholder="Usuario o email" class="w-full bg-slate-800 rounded px-3 py-2" required>
+    <input type="password" name="password" placeholder="Contraseña" class="w-full bg-slate-800 rounded px-3 py-2" required>
+    <button class="w-full bg-emerald-600 hover:bg-emerald-500 rounded px-3 py-2 font-medium">Entrar</button>
+  </form>
+  <p class="text-slate-400 text-sm mt-4">¿No tienes cuenta?
+    <a href="{{ url_for('register') }}" class="text-emerald-400 underline">Crear cuenta</a></p>
+</div>
+{% endblock %}

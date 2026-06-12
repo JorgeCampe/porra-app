@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Reglas · Porra Mundial 2026{% endblock %}
+{% block body %}
+<h1 class="text-2xl font-bold mb-4">Reglas de puntuación</h1>
+<p class="text-slate-400 mb-6 max-w-3xl">Mismos puntos que el Excel original, organizados en dos fases independientes con su propia clasificación. La <b>General</b> suma ambas.</p>
+
+<div class="grid md:grid-cols-2 gap-4">
+  <div class="card rounded-xl p-4">
+    <h2 class="font-bold text-emerald-400 mb-3">Puntos por partido</h2>
+    <table class="w-full text-sm">
+      <thead class="text-slate-400"><tr>
+        <th class="text-left py-1">Etapa</th><th class="text-right">Signo 1X2</th>
+        <th class="text-right">Goles (por lado)</th><th class="text-right">Exacto (bonus)</th>
+      </tr></thead>
+      <tbody>
+      {% for stage,p in mp.items() %}
+      <tr class="border-t border-[#1f2a44]">
+        <td class="py-1">{{ labels.get(stage,stage) }}</td>
+        <td class="text-right">{{ p.signo }}</td>
+        <td class="text-right">{{ p.goal_side }}</td>
+        <td class="text-right">{{ p.exact }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="text-xs text-slate-500 mt-2">Acierto perfecto = signo + goles×2 + exacto. En eliminatorias se puntúa el marcador a los 90'.</p>
+  </div>
+
+  <div class="card rounded-xl p-4">
+    <h2 class="font-bold text-emerald-400 mb-3">Puntos de bonus (equipos)</h2>
+    <table class="w-full text-sm">
+      <tbody>
+        <tr class="border-b border-[#1f2a44]"><td class="py-1 text-slate-400" colspan="2"><b>Fase 1 · Grupos</b></td></tr>
+        <tr><td class="py-1">Campeón de cada grupo (×12)</td><td class="text-right">{{ bp.GROUP_WINNER }}</td></tr>
+        <tr><td class="py-1">Equipos que pasan a dieciseisavos (×32)</td><td class="text-right">{{ bp.R32 }}</td></tr>
+        <tr class="border-b border-t border-[#1f2a44]"><td class="py-1 text-slate-400" colspan="2"><b>Fase 2 · Eliminatorias</b></td></tr>
+        <tr><td class="py-1">Pasan a octavos (×16)</td><td class="text-right">{{ bp.R16 }}</td></tr>
+        <tr><td class="py-1">Pasan a cuartos (×8)</td><td class="text-right">{{ bp.QF }}</td></tr>
+        <tr><td class="py-1">Pasan a semis (×4)</td><td class="text-right">{{ bp.SF }}</td></tr>
+        <tr><td class="py-1">Juegan la final (×2)</td><td class="text-right">{{ bp.FINAL }}</td></tr>
+        <tr><td class="py-1">Campeón del mundial (×1)</td><td class="text-right">{{ bp.CHAMPION }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card rounded-xl p-4 mt-4">
+  <h2 class="font-bold text-emerald-400 mb-3">Máximos por concepto</h2>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+    {% for k,v in maxs.items() %}
+    <div class="flex justify-between border-b border-[#1f2a44] py-1"><span class="text-slate-400">{{ k }}</span><span>{{ v }}</span></div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card rounded-xl p-4 mt-4">
+  <h2 class="font-bold text-emerald-400 mb-2">Desempate</h2>
+  <p class="text-sm text-slate-300">A igualdad de puntos, queda por delante quien tenga <b>más resultados exactos</b> acertados. Si el empate continúa, quien tenga <b>más signos (1X2)</b> acertados.</p>
+  <p class="text-sm text-slate-400 mt-2">Cuando se cierra una fase, puedes ver las predicciones de los demás participantes pulsando su nombre en la Clasificación.</p>
+</div>
+{% endblock %}

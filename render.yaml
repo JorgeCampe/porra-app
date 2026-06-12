@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: porra-mundial-2026
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: DATABASE_URL
+        sync: false            # se pega a mano (la URL de Neon)
+      - key: SECRET_KEY
+        generateValue: true    # Render genera una y la conserva
+      - key: ADMIN_EMAIL
+        value: brian_campero@yahoo.com

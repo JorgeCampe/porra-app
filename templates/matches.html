@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Partidos · Porra Mundial 2026{% endblock %}
+{% block body %}
+<h1 class="text-2xl font-bold mb-1">Partidos y resultados</h1>
+{% if current_user.is_authenticated %}
+<p class="text-slate-400 text-sm mb-4">Cada partido muestra el <b>resultado real</b>, debajo <b>tu pronóstico</b> y los <b>puntos</b> que ganaste.</p>
+{% else %}
+<p class="text-slate-400 text-sm mb-4">Inicia sesión para ver tu pronóstico y tus puntos en cada partido.</p>
+{% endif %}
+
+<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+  {% for title, fixtures in sections %}
+  <div class="card rounded-xl overflow-hidden">
+    <div class="bg-[#0e1730] px-3 py-2 font-bold text-emerald-400">{{ title }}</div>
+    <div class="divide-y divide-[#1f2a44]">
+      {% for f in fixtures %}
+      <div class="px-3 py-2">
+        <div class="flex items-center gap-2 text-sm">
+          <span class="text-slate-500 text-[11px] w-16 shrink-0">{{ f.kickoff.strftime('%d/%m %H:%M') if f.kickoff else '—' }}</span>
+          <span class="flex-1 flex items-center justify-end gap-1 min-w-0">
+            <span class="truncate">{{ f.home.name_es if f.home else 'Por definir' }}</span>
+            {% if f.home and flag_url(f.home.name_es) %}<img src="{{ flag_url(f.home.name_es) }}" class="h-3 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">{% endif %}
+          </span>
+          <span class="font-bold w-12 text-center shrink-0 {{ 'text-emerald-300' if f.finished }}">
+            {% if f.finished %}{{ f.home_goals }}-{{ f.away_goals }}{% else %}<span class="text-slate-600">vs</span>{% endif %}
+          </span>
+          <span class="flex-1 flex items-center gap-1 min-w-0">
+            {% if f.away and flag_url(f.away.name_es) %}<img src="{{ flag_url(f.away.name_es) }}" class="h-3 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">{% endif %}
+            <span class="truncate">{{ f.away.name_es if f.away else 'Por definir' }}</span>
+          </span>
+        </div>
+        {% if current_user.is_authenticated %}
+        <div class="text-[11px] mt-1 text-right">
+          {% if f.id in mp and mp[f.id].pred_home is not none %}
+            <span class="text-slate-500">Tu pronóstico:</span> <span class="text-slate-300 font-medium">{{ mp[f.id].pred_home }}-{{ mp[f.id].pred_away }}</span>
+          {% else %}
+            <span class="text-slate-600">Sin pronóstico</span>
+          {% endif %}
+          {% if f.finished %}
+            {% if f.id in points %}<span class="ml-1 text-emerald-400 font-semibold">+{{ points[f.id] }} pts</span>
+            {% else %}<span class="ml-1 text-slate-600">0 pts</span>{% endif %}
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
