@@ -215,6 +215,15 @@ def maybe_autosync():
 # ---------------------------------------------------------------------------
 # Rutas
 # ---------------------------------------------------------------------------
+_DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+_MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+          "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def _fecha_es(dt):
+    return f"{_DIAS[dt.weekday()]} {dt.day} de {_MESES[dt.month - 1]}"
+
+
 def register_routes(app):
 
     @app.context_processor
@@ -397,19 +406,50 @@ def register_routes(app):
                                     p.pred_home, p.pred_away, f.home_goals,
                                     f.away_goals, config.MATCH_POINTS[f.stage])
 
+        # Predicciones de TODOS por partido (solo si la fase ya está revelada)
+        reveal_group = phase1_locked() and current_user.is_authenticated
+        reveal_ko = (phase2_state() == "locked") and current_user.is_authenticated
+        all_preds = {}
+        if reveal_group or reveal_ko:
+            unames = {u.id: u.username for u in User.query.all()}
+            by_fx = {}
+            for p in MatchPrediction.query.all():
+                by_fx.setdefault(p.fixture_id, []).append(p)
+            for f in fixtures:
+                revealed = reveal_group if f.stage == "GROUP" else reveal_ko
+                if not revealed:
+                    continue
+                rows = []
+                for p in by_fx.get(f.id, []):
+                    if p.pred_home is None:
+                        continue
+                    pts = None
+                    if f.stage == "GROUP" and f.finished:
+                        pts = scoring.score_match(p.pred_home, p.pred_away,
+                                                  f.home_goals, f.away_goals,
+                                                  config.MATCH_POINTS["GROUP"])
+                    rows.append({"user": unames.get(p.user_id, "?"), "uid": p.user_id,
+                                 "ph": p.pred_home, "pa": p.pred_away, "pts": pts})
+                rows.sort(key=lambda r: (-(r["pts"] or 0), r["user"].lower()))
+                all_preds[f.id] = rows
+
+        # Secciones por FECHA (hora de Perú)
         def srt(fs):
             return sorted(fs, key=lambda f: (f.kickoff or datetime.max, f.match_num or 0))
 
-        sections = []   # (título, [partidos])
-        for g in GROUP_LETTERS:
-            gfx = srt([f for f in fixtures if f.stage == "GROUP" and f.group_letter == g])
-            if gfx:
-                sections.append(("Grupo " + g, gfx))
-        for stage in ["R32", "R16", "QF", "SF", "3RD", "FINAL"]:
-            kfx = srt([f for f in fixtures if f.stage == stage])
-            if kfx:
-                sections.append((config.STAGE_LABELS[stage], kfx))
-        return render_template("matches.html", sections=sections, mp=mp, points=points)
+        sections, cur = [], None
+        for f in srt([x for x in fixtures if x.kickoff]):
+            d = f.kickoff.date()
+            if d != cur:
+                sections.append((_fecha_es(f.kickoff), []))
+                cur = d
+            sections[-1][1].append(f)
+        undated = srt([f for f in fixtures if not f.kickoff and
+                       (f.home_team_id or f.away_team_id)])
+        if undated:
+            sections.append(("Eliminatorias (por definir)", undated))
+        return render_template("matches.html", sections=sections, mp=mp,
+                               points=points, all_preds=all_preds)
 
     @app.route("/rules")
     def rules():

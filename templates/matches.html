@@ -2,21 +2,24 @@
 {% block title %}Partidos · Porra Mundial 2026{% endblock %}
 {% block body %}
 <h1 class="text-2xl font-bold mb-1">Partidos y resultados</h1>
-{% if current_user.is_authenticated %}
-<p class="text-slate-400 text-sm mb-4">Cada partido muestra el <b>resultado real</b>, debajo <b>tu pronóstico</b> y los <b>puntos</b> que ganaste.</p>
+{% if all_preds %}
+<p class="text-slate-400 text-sm mb-4">Toca un partido para ver el pronóstico de <b>todos</b> los participantes y los puntos que ganaron.</p>
+{% elif current_user.is_authenticated %}
+<p class="text-slate-400 text-sm mb-4">Cada partido muestra el resultado real, tu pronóstico y tus puntos. Los pronósticos de todos se ven cuando cierra la fase.</p>
 {% else %}
-<p class="text-slate-400 text-sm mb-4">Inicia sesión para ver tu pronóstico y tus puntos en cada partido.</p>
+<p class="text-slate-400 text-sm mb-4">Inicia sesión para ver los pronósticos y los puntos en cada partido.</p>
 {% endif %}
 
-<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+<div class="max-w-2xl mx-auto space-y-5">
   {% for title, fixtures in sections %}
-  <div class="card rounded-xl overflow-hidden">
-    <div class="bg-[#0e1730] px-3 py-2 font-bold text-emerald-400">{{ title }}</div>
-    <div class="divide-y divide-[#1f2a44]">
+  <div>
+    <h2 class="text-emerald-400 font-bold text-sm uppercase tracking-wide mb-2">{{ title }}</h2>
+    <div class="card rounded-xl overflow-hidden divide-y divide-[#1f2a44]">
       {% for f in fixtures %}
-      <div class="px-3 py-2">
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-slate-500 text-[11px] w-16 shrink-0">{{ f.kickoff.strftime('%d/%m %H:%M') if f.kickoff else '—' }}</span>
+      <div>
+        <div class="px-3 py-2 flex items-center gap-2 text-sm select-none {{ 'cursor-pointer hover:bg-[#0e1730]' if f.id in all_preds }}"
+             {% if f.id in all_preds %}onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chev').classList.toggle('rotate-180')"{% endif %}>
+          <span class="text-slate-500 text-[11px] w-11 shrink-0">{{ f.kickoff.strftime('%H:%M') if f.kickoff else '—' }}</span>
           <span class="flex-1 flex items-center justify-end gap-1 min-w-0">
             <span class="truncate">{{ f.home.name_es if f.home else 'Por definir' }}</span>
             {% if f.home and flag_url(f.home.name_es) %}<img src="{{ flag_url(f.home.name_es) }}" class="h-3 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">{% endif %}
@@ -28,18 +31,43 @@
             {% if f.away and flag_url(f.away.name_es) %}<img src="{{ flag_url(f.away.name_es) }}" class="h-3 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">{% endif %}
             <span class="truncate">{{ f.away.name_es if f.away else 'Por definir' }}</span>
           </span>
+          {% if f.id in all_preds %}<span class="chev text-slate-500 text-xs shrink-0 transition-transform">▾</span>{% else %}<span class="w-3 shrink-0"></span>{% endif %}
         </div>
-        {% if current_user.is_authenticated %}
-        <div class="text-[11px] mt-1 text-right">
+
+        {% if f.id in all_preds %}
+        <div class="hidden bg-[#08251a] px-3 py-2">
+          {% if all_preds[f.id] %}
+          <table class="w-full text-[12px]">
+            <thead>
+              <tr class="text-slate-500 text-left border-b border-[#1f2a44]">
+                <th class="font-medium py-1">Participante</th>
+                <th class="font-medium text-center">Pronóstico</th>
+                {% if f.finished %}<th class="font-medium text-right">Pts</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in all_preds[f.id] %}
+              <tr class="{{ 'text-emerald-300 font-semibold' if current_user.is_authenticated and r.uid == current_user.id else 'text-slate-300' }}">
+                <td class="py-0.5">{{ r.user }}</td>
+                <td class="text-center tabular-nums">{{ r.ph }}-{{ r.pa }}</td>
+                {% if f.finished %}<td class="text-right tabular-nums {{ 'text-emerald-400' if r.pts }}">{{ '+' ~ r.pts if r.pts else '0' }}</td>{% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <p class="text-slate-500 text-xs">Nadie pronosticó este partido.</p>
+          {% endif %}
+        </div>
+
+        {% elif current_user.is_authenticated %}
+        <div class="px-3 pb-2 text-[11px] text-right -mt-1">
           {% if f.id in mp and mp[f.id].pred_home is not none %}
             <span class="text-slate-500">Tu pronóstico:</span> <span class="text-slate-300 font-medium">{{ mp[f.id].pred_home }}-{{ mp[f.id].pred_away }}</span>
           {% else %}
             <span class="text-slate-600">Sin pronóstico</span>
           {% endif %}
-          {% if f.finished %}
-            {% if f.id in points %}<span class="ml-1 text-emerald-400 font-semibold">+{{ points[f.id] }} pts</span>
-            {% else %}<span class="ml-1 text-slate-600">0 pts</span>{% endif %}
-          {% endif %}
+          {% if f.finished and f.id in points %}<span class="ml-1 text-emerald-400 font-semibold">+{{ points[f.id] }} pts</span>{% endif %}
         </div>
         {% endif %}
       </div>

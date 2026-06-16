@@ -23,19 +23,7 @@
     </form>
     <p class="text-xs text-amber-400/80 mt-1">El plan gratuito de API-Football no incluye 2026. Usa ESPN salvo que tengas plan de pago.</p>
     {% elif provider=='espn' %}
-    <form method="post" class="flex gap-2 mt-3">
-      <input type="hidden" name="action" value="save_relay">
-      <input name="espn_relay_url" value="{{ espn_relay_url }}"
-             placeholder="https://raw.githubusercontent.com/usuario/repo/main/espn.json"
-             class="flex-1 bg-slate-800 rounded px-3 py-2 text-sm">
-      <button class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded text-sm">Guardar relay</button>
-    </form>
-    {% if espn_relay_url %}
-    <p class="text-xs text-emerald-400/90 mt-1">Relay activo: la app lee los resultados de ESPN desde GitHub (casi en tiempo real).</p>
-    {% else %}
-    <p class="text-xs text-amber-400/90 mt-1">PythonAnywhere gratis no puede llamar a ESPN directo. Pega aquí la URL del relay de GitHub (archivo espn.json) para recibir los resultados casi en tiempo real.</p>
-    {% endif %}
-    <p class="text-xs text-slate-400 mt-1">ESPN no necesita clave. Por ahora cubre la fase de grupos.</p>
+    <p class="text-xs text-slate-400 mt-2">ESPN no necesita clave. Los resultados se actualizan casi en tiempo real. Por ahora cubre la fase de grupos.</p>
     {% else %}
     <p class="text-xs text-slate-400 mt-2">openfootball no necesita ninguna clave. Los marcadores aparecen automáticamente según se juegan los partidos (puede tardar unas horas).</p>
     {% endif %}
