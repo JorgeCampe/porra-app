@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Fase de grupos · Porra Mundial 2026{% endblock %}
+{% block body %}
+<div class="flex items-end justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">Fase 1 · Predicciones de grupos</h1>
+  {% if not locked %}
+    <button form="f1" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded font-medium">Guardar predicciones</button>
+  {% endif %}
+</div>
+
+{% if locked %}
+<div class="mb-4 px-4 py-2 rounded bg-amber-900/50 border border-amber-600">🔒 La fase de grupos está cerrada. Tus predicciones son de solo lectura.</div>
+{% else %}
+<p class="text-slate-400 text-sm mb-4">Pon el marcador de cada partido. La <b>clasificación prevista</b> de cada grupo y los <b>8 mejores terceros</b> se calculan solos con tus marcadores. Desempate como en el Mundial 2026: a igualdad de puntos manda el <b>mano a mano</b> entre los equipos empatados, y recién después la diferencia de goles. Puedes editar hasta el primer partido.</p>
+{% endif %}
+
+<form id="f1" method="post">
+<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for g in by_group.keys() %}
+  <div class="card rounded-xl p-4">
+    <h2 class="font-bold text-emerald-400 mb-2">Grupo {{ g }}</h2>
+    <div class="space-y-1.5 mb-3">
+      {% for f in by_group[g] %}
+      <div class="py-1 border-b border-[#1f2a44] last:border-0">
+        <div class="flex items-center gap-2 text-sm">
+          <span class="flex-1 flex items-center justify-end gap-1 min-w-0">
+            <span class="truncate">{{ f.home.name_es }}</span>
+            <img src="{{ flag_url(f.home.name_es) }}" class="h-3.5 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">
+          </span>
+          <span class="text-slate-500 text-xs shrink-0">vs</span>
+          <span class="flex-1 flex items-center gap-1 min-w-0">
+            <img src="{{ flag_url(f.away.name_es) }}" class="h-3.5 w-auto rounded-sm shrink-0" onerror="this.style.display='none'">
+            <span class="truncate">{{ f.away.name_es }}</span>
+          </span>
+        </div>
+        <div class="flex items-center justify-center gap-1 mt-1">
+          <span class="scorewrap inline-flex items-center gap-0.5">
+            <button type="button" tabindex="-1" data-step="-1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>−</button>
+            <input type="number" min="0" max="20" inputmode="numeric" name="m_{{ f.id }}_h" data-group="{{ g }}"
+                   value="{{ mp[f.id].pred_home if f.id in mp and mp[f.id].pred_home is not none else '' }}"
+                   class="scorein bg-slate-800 rounded text-center py-1" {{ 'disabled' if locked }}>
+            <button type="button" tabindex="-1" data-step="1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>+</button>
+          </span>
+          <span class="text-slate-500">-</span>
+          <span class="scorewrap inline-flex items-center gap-0.5">
+            <button type="button" tabindex="-1" data-step="-1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>−</button>
+            <input type="number" min="0" max="20" inputmode="numeric" name="m_{{ f.id }}_a" data-group="{{ g }}"
+                   value="{{ mp[f.id].pred_away if f.id in mp and mp[f.id].pred_away is not none else '' }}"
+                   class="scorein bg-slate-800 rounded text-center py-1" {{ 'disabled' if locked }}>
+            <button type="button" tabindex="-1" data-step="1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>+</button>
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="border-t border-[#1f2a44] pt-2">
+      <p class="text-xs text-slate-400 mb-1">Clasificación prevista <span class="text-slate-600">(automática)</span></p>
+      <ol id="tbl-{{ g }}" class="text-sm space-y-0.5"></ol>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card rounded-xl p-4 mt-5">
+  <h2 class="font-bold text-emerald-400 mb-1">8 mejores terceros que pasan a dieciseisavos <span class="text-slate-500 text-sm font-normal">(automático)</span></h2>
+  <p class="text-xs text-slate-400 mb-3">Se calcula con los terceros de cada grupo según tus marcadores. Los <span class="text-emerald-300">8 primeros</span> (en verde) pasarían.</p>
+  <ol id="thirds-box" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5 text-sm"></ol>
+</div>
+
+{% if not locked %}
+<div class="mt-5">
+  <button class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded font-medium">Guardar predicciones</button>
+</div>
+{% endif %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TEAMS = { {% for t in teams.values() %}{{ t.id }}:{name:{{ t.name_es|tojson }},flag:{{ flag_url(t.name_es)|tojson }}}{{ "," if not loop.last }}{% endfor %} };
+const GROUPS = { {% for g in by_group.keys() %}{{ g|tojson }}:{
+  teams:[{% for t in teams.values() %}{% if t.group_letter==g %}{{ t.id }},{% endif %}{% endfor %}],
+  matches:[{% for f in by_group[g] %}{fid:{{ f.id }},hid:{{ f.home_team_id }},aid:{{ f.away_team_id }}},{% endfor %}]
+}{{ "," if not loop.last }}{% endfor %} };
+
+function val(name){ const el=document.querySelector(`input[name="${name}"]`); if(!el||el.value==="") return null; const n=parseInt(el.value); return isNaN(n)?null:n; }
+
+function tableFor(g){
+  const st={};
+  GROUPS[g].teams.forEach(id=>st[id]={id, pts:0, gf:0, ga:0});
+  GROUPS[g].matches.forEach(m=>{
+    const h=val(`m_${m.fid}_h`), a=val(`m_${m.fid}_a`);
+    if(h===null||a===null) return;
+    if(!st[m.hid]||!st[m.aid]) return;
+    st[m.hid].gf+=h; st[m.hid].ga+=a; st[m.aid].gf+=a; st[m.aid].ga+=h;
+    if(h>a) st[m.hid].pts+=3; else if(h<a) st[m.aid].pts+=3; else { st[m.hid].pts+=1; st[m.aid].pts+=1; }
+  });
+  return Object.values(st).sort((x,y)=> y.pts-x.pts || (y.gf-y.ga)-(x.gf-x.ga) || y.gf-x.gf || TEAMS[x.id].name.localeCompare(TEAMS[y.id].name));
+}
+
+function row(t, pos){
+  const col = pos<=2 ? 'text-emerald-300' : (pos===3 ? 'text-amber-300' : 'text-slate-400');
+  const gd = (t.gf-t.ga)>=0 ? '+'+(t.gf-t.ga) : (t.gf-t.ga);
+  return `<li class="flex items-center gap-1.5 ${col}"><span class="w-3 text-slate-500">${pos}</span>`+
+         `<img src="${TEAMS[t.id].flag}" class="h-3 w-auto rounded-sm" onerror="this.style.display='none'">`+
+         `<span class="flex-1 truncate">${TEAMS[t.id].name}</span>`+
+         `<span class="text-xs text-slate-500">${t.pts}pt ${gd}</span></li>`;
+}
+
+function recompute(){
+  const thirds=[];
+  Object.keys(GROUPS).forEach(g=>{
+    const tbl=tableFor(g);
+    const ol=document.getElementById('tbl-'+g);
+    if(ol) ol.innerHTML = tbl.map((t,i)=>row(t,i+1)).join('');
+    if(tbl[2]) thirds.push(tbl[2]);
+  });
+  thirds.sort((x,y)=> y.pts-x.pts || (y.gf-y.ga)-(x.gf-x.ga) || y.gf-x.gf || TEAMS[x.id].name.localeCompare(TEAMS[y.id].name));
+  const box=document.getElementById('thirds-box');
+  if(box) box.innerHTML = thirds.map((t,i)=>{
+    const ok = i<8;
+    return `<li class="flex items-center gap-1.5 ${ok?'text-emerald-300':'text-slate-500'}">`+
+      `<span class="w-3">${i+1}</span><img src="${TEAMS[t.id].flag}" class="h-3 w-auto rounded-sm" onerror="this.style.display='none'">`+
+      `<span class="flex-1 truncate">${TEAMS[t.id].name}</span><span class="text-xs">${t.pts}pt</span></li>`;
+  }).join('');
+}
+
+document.querySelectorAll('.scorein').forEach(el=>el.addEventListener('input', recompute));
+recompute();
+</script>
+{% endblock %}

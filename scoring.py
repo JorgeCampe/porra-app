@@ -46,12 +46,80 @@ def _match_flags(ph, pa, ah, aa):
 
 
 def _order(rows):
+    # Orden por criterios TOTALES (puntos, dif. de goles, goles, nombre).
+    # Se usa para elegir los mejores terceros (equipos de grupos distintos, donde
+    # el mano a mano no aplica).
     return sorted(rows, key=lambda s: (-s["pts"], -(s["gf"] - s["ga"]), -s["gf"], s["name"]))
+
+
+# ---------------------------------------------------------------------------
+# Desempate OFICIAL de grupos del Mundial 2026:
+#   1) Puntos.
+#   2) Entre los EMPATADOS en puntos: puntos, diferencia de goles y goles del
+#      MANO A MANO (solo los partidos entre esos equipos).
+#   3) Si siguen iguales: diferencia de goles total y goles totales.
+#   (El juego limpio y el ranking FIFA no se modelan; como último recurso se usa
+#   el nombre para que el orden sea estable.)
+# ---------------------------------------------------------------------------
+def _grp_stats(ids, results):
+    idset = set(ids)
+    st = {t: [0, 0, 0] for t in idset}          # [puntos, dif_goles, goles_favor]
+    for h, a, hg, ag in results:
+        if h not in idset or a not in idset or hg is None or ag is None:
+            continue
+        st[h][2] += hg; st[h][1] += hg - ag
+        st[a][2] += ag; st[a][1] += ag - hg
+        if hg > ag:
+            st[h][0] += 3
+        elif hg < ag:
+            st[a][0] += 3
+        else:
+            st[h][0] += 1; st[a][0] += 1
+    return st
+
+
+def rank_group_2026(team_ids, names, results):
+    """Ordena los ids de un grupo (mejor primero) con el desempate del Mundial
+    2026. results: lista de (home_id, away_id, home_goals, away_goals) jugados."""
+    team_ids = list(team_ids)
+    overall = _grp_stats(team_ids, results)
+
+    def resolve(group):
+        if len(group) == 1:
+            return group
+        h = _grp_stats(group, results)              # mano a mano entre 'group'
+        ordered = sorted(group, key=lambda t: (-h[t][0], -h[t][1], -h[t][2]))
+        out, i = [], 0
+        while i < len(ordered):
+            j, key = i, tuple(h[ordered[i]])
+            while j < len(ordered) and tuple(h[ordered[j]]) == key:
+                j += 1
+            sub = ordered[i:j]
+            if len(sub) == 1:
+                out += sub
+            elif len(sub) < len(group):
+                out += resolve(sub)                 # reaplica mano a mano al subconjunto
+            else:                                   # no separó -> criterios totales
+                out += sorted(sub, key=lambda t: (-overall[t][1], -overall[t][2],
+                                                  (names.get(t) or "").lower()))
+            i = j
+        return out
+
+    out, i = [], 0
+    by_pts = sorted(team_ids, key=lambda t: -overall[t][0])
+    while i < len(by_pts):
+        j, p = i, overall[by_pts[i]][0]
+        while j < len(by_pts) and overall[by_pts[j]][0] == p:
+            j += 1
+        out += resolve(by_pts[i:j])
+        i = j
+    return out
 
 
 def _table_from_scores(team_names, matches, get_score):
     stat = {tid: {"id": tid, "name": nm, "pts": 0, "gf": 0, "ga": 0}
             for tid, nm in team_names.items()}
+    results = []
     for hid, aid in matches:
         sc = get_score(hid, aid)
         if not sc or sc[0] is None or sc[1] is None:
@@ -67,7 +135,10 @@ def _table_from_scores(team_names, matches, get_score):
             stat[aid]["pts"] += 3
         else:
             stat[hid]["pts"] += 1; stat[aid]["pts"] += 1
-    return _order(list(stat.values()))
+        results.append((hid, aid, h, a))
+    names = {tid: s["name"] for tid, s in stat.items()}
+    order = rank_group_2026(stat.keys(), names, results)
+    return [stat[t] for t in order]
 
 
 def _group_structures():

@@ -353,9 +353,12 @@ def compute_group_standings():
                 as_["pts"] += 3
             else:
                 hs["pts"] += 1; as_["pts"] += 1
-        ordered = sorted(stat.values(),
-                         key=lambda s: (-s["pts"], -(s["gf"] - s["ga"]), -s["gf"], s["name"]))
-        out[g] = [s["name"] for s in ordered]
+        from scoring import rank_group_2026   # desempate oficial 2026 (mano a mano)
+        ordered_ids = rank_group_2026(
+            list(stat.keys()),
+            {tid: s["name"] for tid, s in stat.items()},
+            [(f.home_team_id, f.away_team_id, f.home_goals, f.away_goals) for f in fixtures])
+        out[g] = [stat[tid]["name"] for tid in ordered_ids]
     return out
 
 
