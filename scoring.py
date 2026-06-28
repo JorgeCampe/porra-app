@@ -45,6 +45,34 @@ def _match_flags(ph, pa, ah, aa):
             1 if (ph == ah and pa == aa) else 0)
 
 
+def score_ko_cross(pred_h, pred_a, uth, utw, f, pts):
+    """Puntos del MARCADOR de un cruce de eliminatorias.
+       uth/utw = equipos que el usuario puso en ese cruce (local/visitante).
+       - Cruce EXACTO (tus dos equipos son los que se enfrentan): puntuación
+         completa -> signo + goles + marcador exacto.
+       - Cruce PARCIAL (solo UNO de tus equipos está realmente ahí): cuentan el
+         SIGNO (acertar el resultado/quién gana, aunque el rival sea otro) y los
+         GOLES de ESE equipo si los acertaste; NO cuenta el marcador exacto ni los
+         goles del rival.
+       - Si no coincide ninguno: 0."""
+    if pred_h is None or pred_a is None or f.home_goals is None or f.away_goals is None:
+        return 0
+    if uth == f.home_team_id and utw == f.away_team_id:
+        return score_match(pred_h, pred_a, f.home_goals, f.away_goals, pts)
+    home_ok = (uth == f.home_team_id)
+    away_ok = (utw == f.away_team_id)
+    if not (home_ok or away_ok):
+        return 0
+    s = 0
+    if _sign(pred_h, pred_a) == _sign(f.home_goals, f.away_goals):
+        s += pts["signo"]                       # acertaste el resultado del partido
+    if home_ok and pred_h == f.home_goals:
+        s += pts["goal_side"]                   # goles del equipo tuyo que sí está
+    if away_ok and pred_a == f.away_goals:
+        s += pts["goal_side"]
+    return s
+
+
 def _order(rows):
     # Orden por criterios TOTALES (puntos, dif. de goles, goles, nombre).
     # Se usa para elegir los mejores terceros (equipos de grupos distintos, donde
@@ -295,6 +323,97 @@ def actual_champion():
     return None
 
 
+def participant_ko_breakdown(uid):
+    """Desglose de FASE 2 para un participante:
+       - match_pts: puntos de cada cruce (si terminó y el cruce previsto coincide
+         con el real); None si aún no aplica.
+       - bonus: por ronda (R16/QF/SF/FINAL) los equipos que el usuario lleva a esa
+         ronda con ✓ (acertó), ✗ (falló, ronda ya decidida) o None (pendiente).
+       - champion: equipo previsto campeón con su ✓/✗/pendiente.
+    Devuelve None si todavía no hay cuadro de eliminatorias."""
+    ko_by_num = {f.match_num: f for f in
+                 Fixture.query.filter(Fixture.match_num >= 73).all()}
+    if not ko_by_num:
+        return None
+    mp_obj = {mp.fixture_id: mp for mp in
+              MatchPrediction.query.filter_by(user_id=uid).all()}
+    adv = actual_advanced()
+    champ = actual_champion()
+    teams = {t.id: t for t in Team.query.all()}
+
+    def winner_of(num):
+        mp = mp_obj.get(ko_by_num[num].id) if num in ko_by_num else None
+        return mp.pred_winner_id if mp else None
+
+    teams_at, winner = user_ko_bracket(ko_by_num, winner_of)
+
+    # ¿cuántos partidos terminaron por etapa? (para saber si una ronda ya se decidió)
+    done, total = {}, {}
+    for f in ko_by_num.values():
+        total[f.stage] = total.get(f.stage, 0) + 1
+        if f.finished:
+            done[f.stage] = done.get(f.stage, 0) + 1
+
+    def all_done(stage):
+        return total.get(stage, 0) > 0 and done.get(stage, 0) == total[stage]
+
+    # puntos por cruce (si terminó y el cruce previsto coincide con el real)
+    match_pts = {}
+    for num, f in ko_by_num.items():
+        mp = mp_obj.get(f.id)
+        pt = None
+        if f.finished and mp and mp.pred_home is not None:
+            uth, utw = teams_at.get(num, (None, None))
+            pt = score_ko_cross(mp.pred_home, mp.pred_away, uth, utw, f,
+                                MATCH_POINTS[f.stage])
+        match_pts[f.id] = pt
+
+    # equipos que el usuario lleva a cada ronda (en orden, sin repetir)
+    feeder = {"R16": "R32", "QF": "R16", "SF": "QF", "FINAL": "SF"}
+    bonus = {}
+    for rnd, frm in feeder.items():
+        decided = all_done(frm)
+        seen, rows = set(), []
+        for n in KO_ROUND_NUMS[frm]:
+            w = winner.get(n)
+            if not w or w in seen:
+                continue
+            seen.add(w)
+            ok = True if w in adv[rnd] else (False if decided else None)
+            rows.append({"name": teams[w].name_es if w in teams else "?", "ok": ok})
+        pts = sum(BONUS_POINTS[rnd] for r in rows if r["ok"])
+        bonus[rnd] = {"rows": rows, "pts": pts, "decided": decided}
+
+    # marcadores agrupados POR ETAPA, usando el CUADRO del usuario (los equipos que
+    # él hace avanzar), porque los fixtures de R16+ aún no tienen equipos reales.
+    matches_by_stage = []
+    for stage in ("R32", "R16", "QF", "SF", "FINAL", "3RD"):
+        rows = []
+        for num in KO_ROUND_NUMS.get(stage, []):
+            f = ko_by_num.get(num)
+            mp = mp_obj.get(f.id) if f else None
+            if not mp or mp.pred_home is None:
+                continue
+            uth, utw = teams_at.get(num, (None, None))
+            rows.append({
+                "home": teams[uth].name_es if uth in teams else "?",
+                "away": teams[utw].name_es if utw in teams else "?",
+                "ph": mp.pred_home, "pa": mp.pred_away,
+                "pts": match_pts.get(f.id),
+            })
+        if rows:
+            matches_by_stage.append({"stage": stage, "rows": rows})
+
+    cp = winner.get(104)
+    champion = {
+        "name": teams[cp].name_es if cp in teams else None,
+        "ok": (cp == champ) if champ else None,
+        "pts": BONUS_POINTS["CHAMPION"] if (champ and cp == champ) else 0,
+    }
+    return {"match_pts": match_pts, "bonus": bonus, "champion": champion,
+            "matches_by_stage": matches_by_stage}
+
+
 # ---------------------------------------------------------------------------
 # Clasificación de la porra
 # ---------------------------------------------------------------------------
@@ -387,9 +506,9 @@ def compute_standings():
             if not mp or mp.pred_home is None:
                 continue
             uth, utw = teams_at.get(num, (None, None))
+            f2_matches += score_ko_cross(mp.pred_home, mp.pred_away, uth, utw, f,
+                                         MATCH_POINTS[f.stage])
             if uth == f.home_team_id and utw == f.away_team_id:
-                f2_matches += score_match(mp.pred_home, mp.pred_away, f.home_goals,
-                                          f.away_goals, MATCH_POINTS[f.stage])
                 sg, ex = _match_flags(mp.pred_home, mp.pred_away, f.home_goals, f.away_goals)
                 f2_signs += sg; f2_exacts += ex
 

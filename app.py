@@ -505,7 +505,7 @@ def register_routes(app):
         # Revelar las predicciones cuando la fase esté CERRADA (solo a usuarios logueados)
         reveal1 = phase1_locked() and current_user.is_authenticated
         reveal2 = (phase2_state() == "locked") and current_user.is_authenticated
-        pred_groups = pred_tables = pred_ko = champ_pred = bd = None
+        pred_groups = pred_tables = pred_ko = champ_pred = bd = kobd = None
         r32_known = False
         if reveal1 or reveal2:
             preds = {p.fixture_id: p for p in
@@ -526,11 +526,12 @@ def register_routes(app):
                 p = preds.get(f.id)
                 if p and p.pred_home is not None and f.home_team_id and f.away_team_id:
                     pred_ko.append((f, p))
+            kobd = scoring.participant_ko_breakdown(uid)
         return render_template("participant.html", u=u, r=row, maxes=maxes,
                                p1rank=p1rank, p2rank=p2rank, labels=config.STAGE_LABELS,
                                pred_groups=pred_groups, pred_tables=pred_tables,
                                pred_ko=pred_ko, champ_pred=champ_pred,
-                               bd=bd, r32_known=r32_known,
+                               bd=bd, kobd=kobd, r32_known=r32_known,
                                revealed=(reveal1 or reveal2))
 
     # ---- Admin ----

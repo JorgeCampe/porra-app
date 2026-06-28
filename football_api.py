@@ -215,6 +215,8 @@ _ESPN_KO_ROUND = {
     "semifinals": "SF", "3rd-place-match": "3RD", "final": "FINAL",
 }
 _KO_BASE = {"R32": 72, "R16": 88, "QF": 96, "SF": 100, "3RD": 102, "FINAL": 103}
+# Los 16avos se numeran 73..88 por ORDEN de id de ESPN (estable). El cruce real del
+# cuadro se define en config.BRACKET_FEEDS, que empareja esos huecos como la FIFA.
 
 
 def _espn_sides(comp):
