@@ -170,11 +170,19 @@ KO_ROUND_NUMS = {
 KO_NUM_STAGE = {n: st for st, nums in KO_ROUND_NUMS.items() for n in nums}
 
 # Cada cruce (R16 en adelante) se alimenta de los GANADORES ("W") o
-# PERDEDORES ("L") de dos partidos anteriores. (Cuadro oficial 2026.)
+# PERDEDORES ("L") de dos partidos anteriores.
+# Los 16avos ocupan los huecos 73..88 en el ORDEN de id de ESPN:
+#  73 Sudáfrica-Canadá   74 Brasil-Japón      75 Holanda-Marruecos  76 Alemania-Paraguay
+#  77 C.Marfil-Noruega   78 México-Ecuador    79 Francia-Suecia     80 Bélgica-Senegal
+#  81 EE.UU.-Bosnia      82 Inglaterra-RDCongo 83 Portugal-Croacia  84 España-Austria
+#  85 Suiza-Argelia      86 Australia-Egipto   87 Argentina-CaboV.  88 Colombia-Ghana
+# Estos feeds reproducen el CUADRO OFICIAL FIFA/ESPN 2026: en OCTAVOS cruzan
+# Alemania-Francia, Canadá-Holanda, Portugal-España, EEUU-Senegal,
+# Brasil-Noruega, Ecuador-Inglaterra, Argentina-Egipto y Suiza-Colombia.
 BRACKET_FEEDS = {
-    89: ("W", 74, 77), 90: ("W", 73, 75), 91: ("W", 76, 78), 92: ("W", 79, 80),
-    93: ("W", 83, 84), 94: ("W", 81, 82), 95: ("W", 86, 88), 96: ("W", 85, 87),
-    97: ("W", 89, 90), 98: ("W", 93, 94), 99: ("W", 91, 92), 100: ("W", 95, 96),
+    89: ("W", 76, 79), 90: ("W", 73, 75), 91: ("W", 83, 84), 92: ("W", 81, 80),
+    93: ("W", 74, 77), 94: ("W", 78, 82), 95: ("W", 87, 86), 96: ("W", 85, 88),
+    97: ("W", 89, 90), 98: ("W", 91, 92), 99: ("W", 93, 94), 100: ("W", 95, 96),
     101: ("W", 97, 98), 102: ("W", 99, 100),
     103: ("L", 101, 102),   # tercer puesto: perdedores de semis
     104: ("W", 101, 102),   # final: ganadores de semis
