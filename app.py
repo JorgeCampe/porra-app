@@ -432,10 +432,9 @@ def register_routes(app):
                         p = mp.get(f.id)
                         if p and p.pred_home is not None:
                             uth, utw = teams_at.get(num, (None, None))
-                            if uth == f.home_team_id and utw == f.away_team_id:
-                                points[f.id] = scoring.score_match(
-                                    p.pred_home, p.pred_away, f.home_goals,
-                                    f.away_goals, config.MATCH_POINTS[f.stage])
+                            points[f.id] = scoring.score_ko_cross(
+                                p.pred_home, p.pred_away, uth, utw, f,
+                                config.MATCH_POINTS[f.stage])
 
         # Predicciones de TODOS por partido (solo si la fase ya está revelada)
         reveal_group = phase1_locked() and current_user.is_authenticated
@@ -443,9 +442,20 @@ def register_routes(app):
         all_preds = {}
         if reveal_group or reveal_ko:
             unames = {u.id: u.username for u in User.query.all()}
+            all_mp = MatchPrediction.query.all()
             by_fx = {}
-            for p in MatchPrediction.query.all():
+            for p in all_mp:
                 by_fx.setdefault(p.fixture_id, []).append(p)
+            # cuadro de cada participante, para puntuar los cruces de eliminatorias
+            ko_all = {f.match_num: f for f in fixtures if f.match_num and f.match_num >= 73}
+            user_ta = {}
+            if ko_all and reveal_ko:
+                mp_uf = {(p.user_id, p.fixture_id): p for p in all_mp}
+                for uid in {p.user_id for p in all_mp}:
+                    def wof(num, _uid=uid):
+                        q = mp_uf.get((_uid, ko_all[num].id)) if num in ko_all else None
+                        return q.pred_winner_id if q else None
+                    user_ta[uid], _ = scoring.user_ko_bracket(ko_all, wof)
             for f in fixtures:
                 revealed = reveal_group if f.stage == "GROUP" else reveal_ko
                 if not revealed:
@@ -455,10 +465,14 @@ def register_routes(app):
                     if p.pred_home is None:
                         continue
                     pts = None
-                    if f.stage == "GROUP" and f.finished:
+                    if f.finished and f.stage == "GROUP":
                         pts = scoring.score_match(p.pred_home, p.pred_away,
                                                   f.home_goals, f.away_goals,
                                                   config.MATCH_POINTS["GROUP"])
+                    elif f.finished:
+                        uth, utw = user_ta.get(p.user_id, {}).get(f.match_num, (None, None))
+                        pts = scoring.score_ko_cross(p.pred_home, p.pred_away, uth, utw,
+                                                     f, config.MATCH_POINTS[f.stage])
                     rows.append({"user": unames.get(p.user_id, "?"), "uid": p.user_id,
                                  "ph": p.pred_home, "pa": p.pred_away, "pts": pts})
                 rows.sort(key=lambda r: (-(r["pts"] or 0), r["user"].lower()))
