@@ -89,6 +89,15 @@ def _migrate():
                 con.commit()
     except Exception:  # noqa
         pass
+    # En Postgres, agranda settings.value a TEXT: la foto de posiciones (JSON de
+    # los 12 grupos) supera los 255 caracteres y rompía la sincronización.
+    try:
+        if db.engine.url.get_backend_name() in ("postgresql", "postgres"):
+            with db.engine.connect() as con:
+                con.exec_driver_sql("ALTER TABLE settings ALTER COLUMN value TYPE TEXT")
+                con.commit()
+    except Exception:  # noqa
+        pass
 
 
 @login_manager.user_loader

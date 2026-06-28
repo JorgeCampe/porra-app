@@ -103,7 +103,7 @@ class AdvancePrediction(db.Model):
 class Setting(db.Model):
     __tablename__ = "settings"
     key = db.Column(db.String(40), primary_key=True)
-    value = db.Column(db.String(255))
+    value = db.Column(db.Text)   # texto largo: la "foto" de posiciones supera 255
 
 
 def get_setting(key, default=None):
