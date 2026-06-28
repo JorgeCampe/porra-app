@@ -25,14 +25,15 @@
     {% for f in slots %}
     {% set fid = f.id %}{% set num = f.match_num %}
     <div class="kmatch card rounded-lg p-2" data-num="{{ num }}" data-fid="{{ fid }}">
+      {% if num in locked_nums and not locked %}<div class="text-[10px] text-amber-400 mb-0.5">🔒 cerrado (ya empezó)</div>{% endif %}
       <div class="flex items-center gap-1 text-sm">
         <span class="bteam flex-1 flex items-center gap-1 min-w-0" data-num="{{ num }}" data-side="home" {% if f.home %}data-team-id="{{ f.home_team_id }}"{% endif %}>
           {% if f.home %}<img src="{{ flag_url(f.home.name_es) }}" class="h-3.5 w-auto rounded-sm" onerror="this.style.display='none'"><span class="truncate">{{ f.home.name_es }}</span>{% else %}<span class="text-slate-600">—</span>{% endif %}
         </span>
         <span class="scorewrap inline-flex items-center gap-0.5 shrink-0">
-          <button type="button" tabindex="-1" data-step="-1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>−</button>
-          <input class="kscore bg-slate-800 rounded text-center py-1" type="number" min="0" max="20" inputmode="numeric" name="m_{{ fid }}_h" data-num="{{ num }}" value="{{ mp[fid].pred_home if fid in mp and mp[fid].pred_home is not none else '' }}" {{ 'disabled' if locked }}>
-          <button type="button" tabindex="-1" data-step="1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>+</button>
+          <button type="button" tabindex="-1" data-step="-1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked or num in locked_nums }}>−</button>
+          <input class="kscore bg-slate-800 rounded text-center py-1" type="number" min="0" max="20" inputmode="numeric" name="m_{{ fid }}_h" data-num="{{ num }}" value="{{ mp[fid].pred_home if fid in mp and mp[fid].pred_home is not none else '' }}" {{ 'disabled' if locked or num in locked_nums }}>
+          <button type="button" tabindex="-1" data-step="1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked or num in locked_nums }}>+</button>
         </span>
       </div>
       <div class="flex items-center gap-1 text-sm mt-1">
@@ -40,9 +41,9 @@
           {% if f.away %}<img src="{{ flag_url(f.away.name_es) }}" class="h-3.5 w-auto rounded-sm" onerror="this.style.display='none'"><span class="truncate">{{ f.away.name_es }}</span>{% else %}<span class="text-slate-600">—</span>{% endif %}
         </span>
         <span class="scorewrap inline-flex items-center gap-0.5 shrink-0">
-          <button type="button" tabindex="-1" data-step="-1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>−</button>
-          <input class="kscore bg-slate-800 rounded text-center py-1" type="number" min="0" max="20" inputmode="numeric" name="m_{{ fid }}_a" data-num="{{ num }}" value="{{ mp[fid].pred_away if fid in mp and mp[fid].pred_away is not none else '' }}" {{ 'disabled' if locked }}>
-          <button type="button" tabindex="-1" data-step="1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked }}>+</button>
+          <button type="button" tabindex="-1" data-step="-1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked or num in locked_nums }}>−</button>
+          <input class="kscore bg-slate-800 rounded text-center py-1" type="number" min="0" max="20" inputmode="numeric" name="m_{{ fid }}_a" data-num="{{ num }}" value="{{ mp[fid].pred_away if fid in mp and mp[fid].pred_away is not none else '' }}" {{ 'disabled' if locked or num in locked_nums }}>
+          <button type="button" tabindex="-1" data-step="1" class="stepbtn bg-slate-700 hover:bg-slate-600 rounded text-slate-100 font-bold" {{ 'disabled' if locked or num in locked_nums }}>+</button>
         </span>
       </div>
       <input type="hidden" class="tb" name="tb_{{ fid }}" data-num="{{ num }}" value="{{ mp[fid].pred_winner_id if fid in mp and mp[fid].pred_winner_id else '' }}">
@@ -69,6 +70,7 @@ const R32TEAMS = { {% for stage,label,slots in rounds %}{% if stage=='R32' %}{% 
 const FEEDS = { {% for num, trip in feeds.items() %}{{ num }}:["{{ trip[0] }}",{{ trip[1] }},{{ trip[2] }}],{% endfor %} };
 const NUM2FID = { {% for num, fid in num2fid.items() %}{{ num }}:{{ fid }},{% endfor %} };
 const LOCKED = {{ 'true' if locked else 'false' }};
+const LOCKEDNUMS = new Set({{ locked_nums|tojson }});
 const ALLNUMS = Object.keys(NUM2FID).map(Number).sort((a,b)=>a-b);
 
 function inp(num,side){ return document.querySelector(`input[name="m_${NUM2FID[num]}_${side==='home'?'h':'a'}"]`); }
@@ -101,6 +103,7 @@ function recompute(){
     const th=teamAt(num,'home'),tw=teamAt(num,'away'),h=sval(num,'home'),a=sval(num,'away');
     const pc=document.querySelector(`.passctrl[data-num="${num}"]`);
     if(pc) pc.classList.toggle('hidden', !(th&&tw&&h!=null&&a!=null&&h===a));
+    ['home','away'].forEach(side=>{ const pb=document.querySelector(`.passbtn[data-num="${num}"][data-side="${side}"]`); if(pb){ const t=teamAt(num,side); pb.textContent = t? TEAMS[t].name : (side==='home'?'local':'visitante'); } });
     const w=winnerOf(num); const wl=document.querySelector(`.wlabel[data-num="${num}"]`);
     if(wl) wl.textContent = w? ('Pasa: '+TEAMS[w].name):'';
   });
@@ -108,7 +111,7 @@ function recompute(){
   if(cb) cb.innerHTML = champ? `🏆 Campeón previsto: <img src="${TEAMS[champ].flag}" class="inline h-5 w-auto rounded-sm align-middle mx-1"><b>${TEAMS[champ].name}</b>` : '<span class="text-slate-500 text-sm">Completa el cuadro para ver tu campeón previsto</span>';
 }
 document.querySelectorAll('.kscore').forEach(e=>e.addEventListener('input',recompute));
-document.querySelectorAll('.passbtn').forEach(b=>b.addEventListener('click',()=>{ if(LOCKED)return; const num=parseInt(b.dataset.num); setTb(num, teamAt(num,b.dataset.side)); recompute(); }));
+document.querySelectorAll('.passbtn').forEach(b=>b.addEventListener('click',()=>{ const num=parseInt(b.dataset.num); if(LOCKED||LOCKEDNUMS.has(num))return; setTb(num, teamAt(num,b.dataset.side)); recompute(); }));
 recompute();
 </script>
 {% endif %}

@@ -136,7 +136,7 @@ def seed_db():
     if get_setting("phase1_state") is None:
         set_setting("phase1_state", "auto")     # auto/open/locked
     if get_setting("phase2_state") is None:
-        set_setting("phase2_state", "closed")   # closed/open/locked
+        set_setting("phase2_state", "auto")     # auto/closed/open/locked
     if get_setting("provider") is None:
         set_setting("provider", config.RESULTS_PROVIDER)  # espn/openfootball/apifootball
     if get_setting("api_key") is None and config.API_FOOTBALL_KEY:
@@ -175,7 +175,20 @@ def phase1_locked():
 
 
 def phase2_state():
-    return get_setting("phase2_state", "closed")  # closed/open/locked
+    st = get_setting("phase2_state", "auto")  # auto/closed/open/locked
+    past_deadline = datetime.utcnow() >= datetime.fromisoformat(config.PHASE2_LOCK_ISO)
+    if st == "auto":
+        # Cerrada hasta que haya equipos en dieciseisavos; abierta hasta el cierre
+        # global (fin del 28 jun en Perú); luego bloqueada (solo lectura).
+        if past_deadline:
+            return "locked"
+        ready = Fixture.query.filter(Fixture.stage == "R32",
+                                     Fixture.home_team_id.isnot(None)).first()
+        return "open" if ready else "closed"
+    # Estados forzados: un "open" manual también se auto-cierra al pasar el límite.
+    if st == "open" and past_deadline:
+        return "locked"
+    return st
 
 
 def get_api_key():
@@ -353,12 +366,21 @@ def register_routes(app):
         locked = (state == "locked")
         ko = {f.match_num: f for f in Fixture.query.filter(Fixture.match_num >= 73).all()}
         teams = {t.id: t for t in Team.query.all()}
+        # Cada cruce se bloquea 30 MINUTOS ANTES de empezar ese partido (kickoff
+        # guardado en hora de Perú; +5h = UTC, menos 30 min). Y todo el cuadro se
+        # cierra globalmente al terminar mañana (ver PHASE2_LOCK_ISO / phase2_state).
+        from datetime import timedelta
+        _now = datetime.utcnow()
+        locked_nums = {n for n, f in ko.items()
+                       if f.kickoff and _now >= f.kickoff + timedelta(hours=4, minutes=30)}
 
         if request.method == "POST":
             if locked:
                 flash("Las eliminatorias están cerradas.", "error")
                 return redirect(url_for("predict_bracket"))
             for num, f in ko.items():
+                if num in locked_nums:
+                    continue                       # ese cruce ya empezó: no se toca
                 _save_match_pred(current_user.id, f.id,
                                  request.form.get(f"m_{f.id}_h", ""),
                                  request.form.get(f"m_{f.id}_a", ""))
@@ -380,7 +402,7 @@ def register_routes(app):
         return render_template("predict_bracket.html", closed=False, locked=locked,
                                rounds=rounds, mp=mp, teams_json=teams_json,
                                feeds=config.BRACKET_FEEDS, num2fid=num2fid,
-                               r32_ready=r32_ready)
+                               r32_ready=r32_ready, locked_nums=sorted(locked_nums))
 
     # ---- Partidos y resultados ----
     @app.route("/matches")
@@ -552,7 +574,7 @@ def register_routes(app):
                                provider=get_setting("provider", "openfootball"),
                                espn_relay_url=get_setting("espn_relay_url", ""),
                                p1=get_setting("phase1_state", "auto"),
-                               p2=get_setting("phase2_state", "closed"),
+                               p2=get_setting("phase2_state", "auto"),
                                nfix=nfix, nfin=nfin)
 
     # ---- Resultados manuales (respaldo) ----

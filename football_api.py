@@ -16,6 +16,7 @@ import re
 import json
 import time
 import unicodedata
+from datetime import datetime, timedelta
 import requests
 
 import config
@@ -208,45 +209,89 @@ def _espn_status(state, completed):
     return "SCHEDULED"
 
 
+# ESPN -> ronda del app, y primer nº de partido de cada ronda (#N -> base + N)
+_ESPN_KO_ROUND = {
+    "round-of-32": "R32", "round-of-16": "R16", "quarterfinals": "QF",
+    "semifinals": "SF", "3rd-place-match": "3RD", "final": "FINAL",
+}
+_KO_BASE = {"R32": 72, "R16": 88, "QF": 96, "SF": 100, "3RD": 102, "FINAL": 103}
+
+
+def _espn_sides(comp):
+    """(home_es, away_es, home_goals, away_goals, winner_es) de una competición."""
+    home = away = hs = as_ = winner_es = None
+    for c in comp.get("competitors", []):
+        team = c.get("team") or {}
+        es = (resolve_team_es(team.get("name"))
+              or resolve_team_es(team.get("displayName"))
+              or resolve_team_es(team.get("shortDisplayName")))
+        try:
+            sc = int(c.get("score"))
+        except (TypeError, ValueError):
+            sc = None
+        if c.get("homeAway") == "home":
+            home, hs = es, sc
+        else:
+            away, as_ = es, sc
+        if c.get("winner"):
+            winner_es = es
+    return home, away, hs, as_, winner_es
+
+
+def _espn_kickoff_peru(iso):
+    """ESPN entrega la hora en UTC; el app guarda en hora de Perú (UTC-5)."""
+    if not iso:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "").split("+")[0])
+        return (dt - timedelta(hours=5)).isoformat()
+    except Exception:  # noqa
+        return None
+
+
 def _normalize_espn(events):
-    out, seen = [], set()
+    out, seen, ko = [], set(), {}
     for ev in events:
         comps = ev.get("competitions") or []
         if not comps:
             continue
         comp = comps[0]
-        # de momento solo fase de grupos (los cruces se mapean aparte)
-        if "group" not in ((ev.get("season") or {}).get("slug") or "").lower():
-            continue
         eid = ev.get("id")
         if eid in seen:                      # evita duplicados entre rangos solapados
             continue
         seen.add(eid)
+        slug = ((ev.get("season") or {}).get("slug") or "").lower()
         stt = (comp.get("status") or {}).get("type") or {}
         status = _espn_status(stt.get("state"), stt.get("completed"))
-        home = away = hs = as_ = winner_es = None
-        for c in comp.get("competitors", []):
-            team = c.get("team") or {}
-            es = (resolve_team_es(team.get("name"))
-                  or resolve_team_es(team.get("displayName"))
-                  or resolve_team_es(team.get("shortDisplayName")))
-            try:
-                sc = int(c.get("score"))
-            except (TypeError, ValueError):
-                sc = None
-            if c.get("homeAway") == "home":
-                home, hs = es, sc
-            else:
-                away, as_ = es, sc
-            if c.get("winner"):
-                winner_es = es
-        out.append({
-            "stage": "GROUP", "group_letter": None, "match_num": None,
-            "home": home, "away": away, "status": status,
-            "home_goals": hs, "away_goals": as_, "winner_es": winner_es,
-            "date": (ev.get("date") or "")[:10],
-            "stadium": (comp.get("venue") or {}).get("fullName"),
-        })
+        if "group" in slug:
+            home, away, hs, as_, winner_es = _espn_sides(comp)
+            out.append({
+                "stage": "GROUP", "group_letter": None, "match_num": None,
+                "home": home, "away": away, "status": status,
+                "home_goals": hs, "away_goals": as_, "winner_es": winner_es,
+                "date": (ev.get("date") or "")[:10],
+                "stadium": (comp.get("venue") or {}).get("fullName"),
+            })
+        elif slug in _ESPN_KO_ROUND:
+            ko.setdefault(_ESPN_KO_ROUND[slug], []).append(ev)
+
+    # Eliminatorias: se numeran 1..N por id dentro de cada ronda y se mapean a los
+    # huecos del app (R32 #1 -> partido 73, ... #16 -> 88; R16 #1 -> 89; etc.).
+    for rnd, lst in ko.items():
+        lst.sort(key=lambda e: int(e.get("id") or 0))
+        for i, ev in enumerate(lst, 1):
+            comp = (ev.get("competitions") or [{}])[0]
+            stt = (comp.get("status") or {}).get("type") or {}
+            home, away, hs, as_, winner_es = _espn_sides(comp)
+            out.append({
+                "stage": rnd, "group_letter": None,
+                "match_num": _KO_BASE[rnd] + i,
+                "home": home, "away": away,
+                "status": _espn_status(stt.get("state"), stt.get("completed")),
+                "home_goals": hs, "away_goals": as_, "winner_es": winner_es,
+                "date": _espn_kickoff_peru(ev.get("date")),
+                "stadium": (comp.get("venue") or {}).get("fullName"),
+            })
     return out
 
 
@@ -308,9 +353,8 @@ def _apply_fixture(fx, cache, summary):
     f.stage = stage
     if fx.get("stadium"):
         f.stadium = fx["stadium"]
-    if fx.get("date") and not f.kickoff:
+    if fx.get("date"):                     # actualiza la hora del cruce cada sync
         try:
-            from datetime import datetime
             f.kickoff = datetime.fromisoformat(fx["date"])
         except Exception:  # noqa
             pass
@@ -390,6 +434,9 @@ def sync_results(api_key=None, provider=None, ingest_fixtures=None, ingest_stand
     for fx in fixtures:
         _apply_fixture(fx, cache, summary)
     db.session.commit()
+
+    # (La Fase 2 se abre sola con el modo "Automático" en cuanto hay equipos en
+    # dieciseisavos; no hace falta tocar el ajuste aquí.)
 
     # Clasificación de grupos (para campeón de grupo)
     standings = ingest_standings if ingest_standings is not None else compute_group_standings()

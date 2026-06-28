@@ -51,8 +51,9 @@
       <label class="block">
         <span class="text-slate-400">Fase 2 · Eliminatorias</span>
         <select name="phase2_state" class="w-full bg-slate-800 rounded px-2 py-2 mt-1">
+          <option value="auto" {{ 'selected' if p2=='auto' }}>Automático (abre con los clasificados, cierra el 28)</option>
           <option value="closed" {{ 'selected' if p2=='closed' }}>Cerrada / no disponible aún</option>
-          <option value="open" {{ 'selected' if p2=='open' }}>Abierta (admite predicciones)</option>
+          <option value="open" {{ 'selected' if p2=='open' }}>Abierta (forzar)</option>
           <option value="locked" {{ 'selected' if p2=='locked' }}>Bloqueada (solo lectura)</option>
         </select>
       </label>
