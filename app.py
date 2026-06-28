@@ -474,12 +474,14 @@ def register_routes(app):
         # Revelar las predicciones cuando la fase esté CERRADA (solo a usuarios logueados)
         reveal1 = phase1_locked() and current_user.is_authenticated
         reveal2 = (phase2_state() == "locked") and current_user.is_authenticated
-        pred_groups = pred_tables = pred_ko = champ_pred = None
+        pred_groups = pred_tables = pred_ko = champ_pred = bd = None
+        r32_known = False
         if reveal1 or reveal2:
             preds = {p.fixture_id: p for p in
                      MatchPrediction.query.filter_by(user_id=uid).all()}
         if reveal1:
             pred_tables = scoring.predicted_group_tables(uid)
+            bd, r32_known = scoring.participant_breakdown(uid)
             pred_groups = {}
             for f in Fixture.query.filter_by(stage="GROUP").order_by(Fixture.match_num).all():
                 pred_groups.setdefault(f.group_letter, []).append((f, preds.get(f.id)))
@@ -497,6 +499,7 @@ def register_routes(app):
                                p1rank=p1rank, p2rank=p2rank, labels=config.STAGE_LABELS,
                                pred_groups=pred_groups, pred_tables=pred_tables,
                                pred_ko=pred_ko, champ_pred=champ_pred,
+                               bd=bd, r32_known=r32_known,
                                revealed=(reveal1 or reveal2))
 
     # ---- Admin ----

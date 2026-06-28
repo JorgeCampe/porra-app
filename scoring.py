@@ -166,6 +166,70 @@ def predicted_group_tables(user_id):
             for g in GROUP_LETTERS}
 
 
+def participant_breakdown(uid):
+    """Desglose de puntos de FASE 1 por grupo para un participante:
+       - puntos de cada partido (resultado),
+       - bono de campeón de grupo (acertado o no),
+       - bono por equipos que predijo a dieciseisavos y que pasaron.
+    Devuelve {grupo: {...}} y un flag r32_known (si ya se conocen los clasificados)."""
+    _, group_matches = _group_structures()
+    fixtures = {f.id: f for f in Fixture.query.filter_by(stage="GROUP").all()}
+    fx_by_teams = {(f.home_team_id, f.away_team_id): f.id for f in fixtures.values()}
+    pred = {mp.fixture_id: (mp.pred_home, mp.pred_away)
+            for mp in MatchPrediction.query.filter_by(user_id=uid).all()}
+    tables = predicted_group_tables(uid)
+    gw = actual_group_winners()
+    adv = actual_advanced()["R32"]
+    r32_known = bool(adv)
+
+    # equipos que el usuario predijo que avanzan (top 2 por grupo + 8 mejores terceros)
+    pred_adv, thirds = set(), []
+    for g in GROUP_LETTERS:
+        t = tables[g]
+        if len(t) >= 1:
+            pred_adv.add(t[0]["id"])
+        if len(t) >= 2:
+            pred_adv.add(t[1]["id"])
+        if len(t) >= 3:
+            thirds.append(t[2])
+    for s in _order(thirds)[:8]:
+        pred_adv.add(s["id"])
+
+    out = {}
+    for g in GROUP_LETTERS:
+        match_pts, gpts = {}, 0
+        for (hid, aid) in group_matches.get(g, []):
+            fid = fx_by_teams.get((hid, aid))
+            f, p = fixtures.get(fid), pred.get(fid)
+            pt = None
+            if f and f.finished and p:
+                pt = score_match(p[0], p[1], f.home_goals, f.away_goals, MATCH_POINTS["GROUP"])
+                gpts += pt
+            match_pts[fid] = pt
+        wp = tables[g][0] if tables[g] else None
+        winner_ok = bool(wp and gw.get(g) and wp["id"] == gw.get(g))
+        adv_rows = []
+        for idx, s in enumerate(tables[g][:3]):
+            if s["id"] not in pred_adv:
+                continue
+            if idx == 2:                       # solo el 3º si entró entre los 8 mejores
+                label = s["name"] + " (3º)"
+            else:
+                label = s["name"]
+            adv_rows.append({"name": label,
+                             "ok": (s["id"] in adv) if r32_known else None})
+        adv_pts = sum(BONUS_POINTS["R32"] for r in adv_rows if r["ok"])
+        out[g] = {
+            "match_pts": match_pts, "group_pts": gpts,
+            "winner_name": wp["name"] if wp else None,
+            "winner_ok": winner_ok,
+            "winner_decided": g in gw,
+            "winner_pts": BONUS_POINTS["GROUP_WINNER"] if winner_ok else 0,
+            "adv_rows": adv_rows, "adv_pts": adv_pts,
+        }
+    return out, r32_known
+
+
 # ---------------------------------------------------------------------------
 # Cuadro de eliminatorias del usuario (derivado de pred_winner_id guardado)
 # ---------------------------------------------------------------------------

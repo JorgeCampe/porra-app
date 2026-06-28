@@ -65,18 +65,46 @@
 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
   {% for g, matches in pred_groups.items() %}
   <div class="card rounded-xl p-3">
-    <div class="font-bold text-emerald-400 mb-1">Grupo {{ g }}</div>
+    <div class="flex items-center justify-between mb-1">
+      <div class="font-bold text-emerald-400">Grupo {{ g }}</div>
+      {% if bd %}<div class="text-xs font-semibold text-emerald-300">{{ bd[g].group_pts + bd[g].winner_pts + bd[g].adv_pts }} pts</div>{% endif %}
+    </div>
     <div class="space-y-0.5 text-sm">
       {% for f, p in matches %}
       <div class="flex justify-between gap-2">
         <span class="truncate text-slate-300">{{ f.home.name_es }} - {{ f.away.name_es }}</span>
-        <span class="shrink-0">{% if p and p.pred_home is not none %}{{ p.pred_home }}-{{ p.pred_away }}{% else %}<span class="text-slate-600">—</span>{% endif %}</span>
+        <span class="shrink-0 flex items-center gap-1">
+          <span>{% if p and p.pred_home is not none %}{{ p.pred_home }}-{{ p.pred_away }}{% else %}<span class="text-slate-600">—</span>{% endif %}</span>
+          {% if bd and bd[g].match_pts[f.id] is not none %}<span class="text-emerald-400 text-[11px] font-semibold w-7 text-right">+{{ bd[g].match_pts[f.id] }}</span>{% elif bd %}<span class="w-7"></span>{% endif %}
+        </span>
       </div>
       {% endfor %}
     </div>
     <div class="border-t border-[#1f2a44] mt-2 pt-1 text-xs text-slate-400">
       Previsto: {% for row in pred_tables[g] %}{{ loop.index }}. {{ row.name }}{{ ' · ' if not loop.last }}{% endfor %}
     </div>
+    {% if bd %}
+    <div class="border-t border-[#1f2a44] mt-1 pt-1.5 text-xs space-y-1">
+      <div class="flex justify-between"><span class="text-slate-400">Resultados</span><span class="text-emerald-400 font-medium">+{{ bd[g].group_pts }}</span></div>
+      <div class="flex justify-between gap-2">
+        <span class="text-slate-400 truncate">Campeón{% if bd[g].winner_name %}: {{ bd[g].winner_name }}{% endif %}</span>
+        {% if not bd[g].winner_decided %}<span class="text-slate-600 shrink-0">pendiente</span>
+        {% elif bd[g].winner_ok %}<span class="text-emerald-400 font-medium shrink-0">✓ +{{ bd[g].winner_pts }}</span>
+        {% else %}<span class="text-rose-400 shrink-0">✗ 0</span>{% endif %}
+      </div>
+      <div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Pasan a 16avos</span>
+          {% if not r32_known %}<span class="text-slate-600">pendiente</span>{% else %}<span class="text-emerald-400 font-medium">+{{ bd[g].adv_pts }}</span>{% endif %}
+        </div>
+        {% if bd[g].adv_rows %}
+        <div class="text-[11px] text-slate-500 leading-snug">
+          {% for r in bd[g].adv_rows %}{{ r.name }}{% if r.ok is not none %} {{ '✓' if r.ok else '✗' }}{% endif %}{{ ', ' if not loop.last }}{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
