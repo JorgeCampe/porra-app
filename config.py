@@ -75,9 +75,10 @@ DISPLAY_TZ_LABEL = "hora de Perú (UTC-5)"
 # Cierre de la Fase 1: 11 de junio a las 00:00 de Perú (= 05:00 UTC)
 PHASE1_LOCK_ISO = "2026-06-11T05:00:00"
 
-# Cierre GLOBAL de la Fase 2 (eliminatorias): fin del 28 de junio (domingo) en
-# Perú (= 29 jun 05:00 UTC). Además, cada cruce se bloquea 30 min antes de empezar.
-PHASE2_LOCK_ISO = "2026-06-29T05:00:00"
+# Cierre GLOBAL de la Fase 2 (eliminatorias): 30 min antes de Brasil-Japón, o sea
+# el 29 de junio a las 11:30 de Perú (= 16:30 UTC). Además, cada cruce se bloquea
+# 30 min antes de empezar su propio partido.
+PHASE2_LOCK_ISO = "2026-06-29T16:30:00"
 
 # ---------------------------------------------------------------------------
 # PUNTUACIONES POR PARTIDO  (signo 1X2 / goles por lado / resultado exacto)
