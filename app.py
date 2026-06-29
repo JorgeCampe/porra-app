@@ -442,6 +442,7 @@ def register_routes(app):
         all_preds = {}
         if reveal_group or reveal_ko:
             unames = {u.id: u.username for u in User.query.all()}
+            tnames = {t.id: t.name_es for t in Team.query.all()}
             all_mp = MatchPrediction.query.all()
             by_fx = {}
             for p in all_mp:
@@ -461,20 +462,27 @@ def register_routes(app):
                 if not revealed:
                     continue
                 rows = []
+                ko_show_teams = bool(f.match_num and f.match_num >= 89)  # R16+ : el rival varía
                 for p in by_fx.get(f.id, []):
                     if p.pred_home is None:
                         continue
                     pts = None
-                    if f.finished and f.stage == "GROUP":
-                        pts = scoring.score_match(p.pred_home, p.pred_away,
-                                                  f.home_goals, f.away_goals,
-                                                  config.MATCH_POINTS["GROUP"])
-                    elif f.finished:
+                    home = away = None
+                    if f.stage == "GROUP":
+                        if f.finished:
+                            pts = scoring.score_match(p.pred_home, p.pred_away,
+                                                      f.home_goals, f.away_goals,
+                                                      config.MATCH_POINTS["GROUP"])
+                    else:
                         uth, utw = user_ta.get(p.user_id, {}).get(f.match_num, (None, None))
-                        pts = scoring.score_ko_cross(p.pred_home, p.pred_away, uth, utw,
-                                                     f, config.MATCH_POINTS[f.stage])
+                        if ko_show_teams:
+                            home, away = tnames.get(uth), tnames.get(utw)
+                        if f.finished:
+                            pts = scoring.score_ko_cross(p.pred_home, p.pred_away, uth, utw,
+                                                         f, config.MATCH_POINTS[f.stage])
                     rows.append({"user": unames.get(p.user_id, "?"), "uid": p.user_id,
-                                 "ph": p.pred_home, "pa": p.pred_away, "pts": pts})
+                                 "ph": p.pred_home, "pa": p.pred_away, "pts": pts,
+                                 "home": home, "away": away})
                 rows.sort(key=lambda r: (-(r["pts"] or 0), r["user"].lower()))
                 all_preds[f.id] = rows
 

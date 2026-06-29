@@ -49,7 +49,7 @@
               {% for r in all_preds[f.id] %}
               <tr class="{{ 'text-emerald-300 font-semibold' if current_user.is_authenticated and r.uid == current_user.id else 'text-slate-300' }}">
                 <td class="py-0.5">{{ r.user }}</td>
-                <td class="text-center tabular-nums">{{ r.ph }}-{{ r.pa }}</td>
+                <td class="text-center">{% if r.home or r.away %}<span class="text-slate-400">{{ r.home or '?' }}</span> <b class="tabular-nums text-slate-200">{{ r.ph }}-{{ r.pa }}</b> <span class="text-slate-400">{{ r.away or '?' }}</span>{% else %}<span class="tabular-nums">{{ r.ph }}-{{ r.pa }}</span>{% endif %}</td>
                 {% if f.finished %}<td class="text-right tabular-nums {{ 'text-emerald-400' if r.pts }}">{{ '+' ~ r.pts if r.pts else '0' }}</td>{% endif %}
               </tr>
               {% endfor %}
