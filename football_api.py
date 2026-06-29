@@ -340,7 +340,12 @@ def _apply_fixture(fx, cache, summary):
             summary["groups_updated"] += 1
         return
 
-    # --- Eliminatorias: upsert por match_num o api_id ---
+    # Octavos en adelante (huecos 89+) se colocan por la ESTRUCTURA del cuadro en
+    # _resolve_ko_bracket (no por id de ESPN). Aquí solo R32 (huecos 73-88).
+    if stage != "R32":
+        return
+
+    # --- R32 (dieciseisavos): upsert por match_num o api_id ---
     f = None
     if fx.get("match_num"):
         f = Fixture.query.filter_by(match_num=fx["match_num"]).first()
@@ -408,6 +413,97 @@ def compute_group_standings():
     return out
 
 
+def _resolve_ko_bracket(normalized, summary):
+    """Coloca los equipos REALES de octavos en adelante (huecos 89..104) según la
+    ESTRUCTURA del cuadro (config.BRACKET_FEEDS), NO por el id de ESPN, y empareja
+    los resultados por los DOS equipos del cruce. Así el partido real y el cuadro de
+    cada usuario usan el MISMO hueco (si no, se descuadra: p. ej. Canadá saldría en
+    el hueco de Alemania-Francia)."""
+    from config import BRACKET_FEEDS, KO_SCHEDULE
+    fx = {f.match_num: f for f in Fixture.query.filter(Fixture.match_num >= 73).all()}
+    if not fx:
+        return
+    id2name = {t.id: t.name_es for t in Team.query.all()}
+    name2id = {n: i for i, n in id2name.items()}
+
+    # resultados ESPN de octavos+ con los dos equipos reales (indexados por par);
+    # y ganador real de cada R32 (para empates por penales)
+    espn_pair, r32_win_es = {}, {}
+    for e in normalized:
+        st = e.get("stage")
+        h, a = e.get("home"), e.get("away")
+        if st == "R32" and e.get("match_num") and e.get("winner_es"):
+            r32_win_es[e["match_num"]] = e["winner_es"]
+        elif st in ("R16", "QF", "SF", "3RD", "FINAL") and h and a \
+                and h in name2id and a in name2id:
+            espn_pair[frozenset((h, a))] = e
+
+    win, ta = {}, {}                       # hueco -> id ganador real / (home,away)
+    for n in range(73, 89):
+        f = fx.get(n)
+        if not f:
+            continue
+        ta[n] = (f.home_team_id, f.away_team_id)
+        if f.finished and f.home_goals is not None:
+            if f.home_goals > f.away_goals:
+                win[n] = f.home_team_id
+            elif f.home_goals < f.away_goals:
+                win[n] = f.away_team_id
+            else:                          # empate -> penales: ganador desde ESPN
+                win[n] = name2id.get(r32_win_es.get(n))
+
+    def pick(slot, typ):
+        if typ == "W":
+            return win.get(slot)
+        w = win.get(slot)                  # perdedor (para el 3er puesto)
+        h, aw = ta.get(slot, (None, None))
+        return None if not w else (aw if w == h else h)
+
+    changed = 0
+    for num in sorted(k for k in fx if k >= 89 and k in BRACKET_FEEDS):
+        typ, a, b = BRACKET_FEEDS[num]
+        home_id, away_id = pick(a, typ), pick(b, typ)
+        ta[num] = (home_id, away_id)
+        f = fx[num]
+        if f.home_team_id != home_id or f.away_team_id != away_id:
+            f.home_team_id, f.away_team_id = home_id, away_id   # incl. limpiar
+            changed += 1
+        # fecha/hora OFICIAL del cruce (fija por hueco, no depende de los equipos)
+        sched = KO_SCHEDULE.get(num)
+        if sched:
+            try:
+                f.kickoff = datetime.fromisoformat(sched)
+            except Exception:  # noqa
+                pass
+        if home_id and away_id:            # cruce definido -> buscar resultado real
+            e = espn_pair.get(frozenset((id2name.get(home_id), id2name.get(away_id))))
+            if e:
+                f.status = e["status"]
+                if e["status"] == "FINISHED" and e.get("home_goals") is not None:
+                    if id2name.get(home_id) == e.get("home"):
+                        f.home_goals, f.away_goals = e["home_goals"], e["away_goals"]
+                    else:                  # ESPN trae el orden invertido
+                        f.home_goals, f.away_goals = e["away_goals"], e["home_goals"]
+                    if f.home_goals > f.away_goals:
+                        win[num] = home_id
+                    elif f.home_goals < f.away_goals:
+                        win[num] = away_id
+                    else:
+                        win[num] = name2id.get(e.get("winner_es"))
+                if e.get("date"):
+                    try:
+                        f.kickoff = datetime.fromisoformat(e["date"])
+                    except Exception:  # noqa
+                        pass
+                if e.get("stadium"):
+                    f.stadium = e["stadium"]
+    if changed:
+        summary["ko_updated"] = summary.get("ko_updated", 0) + changed
+    champ = win.get(104)
+    if champ:
+        set_setting("champion_es", id2name.get(champ))
+
+
 # ===========================================================================
 # Punto de entrada: sincronizar
 # ===========================================================================
@@ -435,6 +531,11 @@ def sync_results(api_key=None, provider=None, ingest_fixtures=None, ingest_stand
     cache = {}
     for fx in fixtures:
         _apply_fixture(fx, cache, summary)
+    db.session.commit()
+
+    # Octavos en adelante: colocar los equipos REALES en los huecos correctos según
+    # la estructura del cuadro (no por id de ESPN) y emparejar resultados por equipos.
+    _resolve_ko_bracket(fixtures, summary)
     db.session.commit()
 
     # (La Fase 2 se abre sola con el modo "Automático" en cuanto hay equipos en

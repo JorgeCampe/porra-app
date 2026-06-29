@@ -177,14 +177,27 @@ KO_NUM_STAGE = {n: st for st, nums in KO_ROUND_NUMS.items() for n in nums}
 #  77 C.Marfil-Noruega   78 México-Ecuador    79 Francia-Suecia     80 Bélgica-Senegal
 #  81 EE.UU.-Bosnia      82 Inglaterra-RDCongo 83 Portugal-Croacia  84 España-Austria
 #  85 Suiza-Argelia      86 Australia-Egipto   87 Argentina-CaboV.  88 Colombia-Ghana
-# Estos feeds reproducen el CUADRO OFICIAL FIFA/ESPN 2026: en OCTAVOS cruzan
-# Alemania-Francia, Canadá-Holanda, Portugal-España, EEUU-Senegal,
-# Brasil-Noruega, Ecuador-Inglaterra, Argentina-Egipto y Suiza-Colombia.
+# Estos feeds reproducen el BRACKET OFICIAL de FIFA (fifa.com), verificado con la
+# imagen del cuadro. OCTAVOS oficiales (con los previstos): 89 Alemania-Francia ·
+# 90 Canadá-Holanda · 91 Brasil-Noruega · 92 Ecuador-Inglaterra · 93 Portugal-España ·
+# 94 EEUU-Senegal · 95 Argentina-Egipto · 96 Suiza-Colombia.
 BRACKET_FEEDS = {
-    89: ("W", 76, 79), 90: ("W", 73, 75), 91: ("W", 83, 84), 92: ("W", 81, 80),
-    93: ("W", 74, 77), 94: ("W", 78, 82), 95: ("W", 87, 86), 96: ("W", 85, 88),
-    97: ("W", 89, 90), 98: ("W", 91, 92), 99: ("W", 93, 94), 100: ("W", 95, 96),
+    89: ("W", 76, 79), 90: ("W", 73, 75), 91: ("W", 74, 77), 92: ("W", 78, 82),
+    93: ("W", 83, 84), 94: ("W", 81, 80), 95: ("W", 87, 86), 96: ("W", 85, 88),
+    97: ("W", 89, 90), 98: ("W", 93, 94), 99: ("W", 91, 92), 100: ("W", 95, 96),
     101: ("W", 97, 98), 102: ("W", 99, 100),
     103: ("L", 101, 102),   # tercer puesto: perdedores de semis
     104: ("W", 101, 102),   # final: ganadores de semis
+}
+
+# Horario OFICIAL FIFA de octavos en adelante (hora de Perú), por hueco. Se fija
+# aquí para que cada cruce muestre su fecha correcta aunque aún no se definan los
+# equipos. (Tomado del bracket oficial fifa.com, filtro Perú.)
+KO_SCHEDULE = {
+    89: "2026-07-04 16:00", 90: "2026-07-04 12:00", 91: "2026-07-05 15:00",
+    92: "2026-07-05 19:00", 93: "2026-07-06 14:00", 94: "2026-07-06 19:00",
+    95: "2026-07-07 11:00", 96: "2026-07-07 15:00",
+    97: "2026-07-09 15:00", 98: "2026-07-10 14:00", 99: "2026-07-11 16:00",
+    100: "2026-07-11 20:00", 101: "2026-07-14 14:00", 102: "2026-07-15 14:00",
+    103: "2026-07-18 16:00", 104: "2026-07-19 14:00",
 }
